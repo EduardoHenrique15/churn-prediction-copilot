@@ -1,12 +1,12 @@
 # 🔮 Churn Prediction Copilot
 
-Sistema de previsão de cancelamento de clientes (churn) para uma empresa de telecomunicações, com modelo de Machine Learning servido via API REST e rastreamento completo de experimentos.
+Sistema de previsão de cancelamento de clientes (churn) para uma empresa de telecomunicações, com modelo de Machine Learning servido via API REST, rastreamento completo de experimentos, e um agente de IA conversacional com RAG e function calling.
 
 ## 📌 Problema de negócio
 
 Empresas de assinatura (telecom, SaaS, streaming) enfrentam um desafio constante: identificar **quais clientes estão prestes a cancelar** antes que isso aconteça, para que times de retenção possam agir preventivamente (ofertas, contato proativo, ajuste de plano).
 
-Este projeto treina um modelo de classificação que prevê a probabilidade de um cliente cancelar o serviço, com base em seu perfil de uso e contrato, e disponibiliza essa previsão via API pronta para integração com outros sistemas.
+Este projeto treina um modelo de classificação que prevê a probabilidade de um cliente cancelar o serviço, disponibiliza essa previsão via API, e oferece um **agente de IA** que explica os resultados em linguagem natural, combinando a previsão do modelo com uma base de conhecimento sobre churn.
 
 ## 🗂️ Dataset
 
@@ -35,6 +35,10 @@ Modelo serializado (.pkl)
 API REST (api.py, FastAPI) → endpoint /predict
         ↓
 Containerização (Docker) → aplicação portável e reprodutível
+        ↓
+Agente de IA (agent.py, LangChain + Gemini)
+        ├── Function calling → chama a API /predict
+        └── RAG (ChromaDB) → busca contexto na base de conhecimento
 ```
 
 ## 📊 Resultados do modelo
@@ -48,21 +52,57 @@ Containerização (Docker) → aplicação portável e reprodutível
 
 **Por que priorizar recall em vez de acurácia:** o custo de não identificar um cliente que vai cancelar (falso negativo) é maior para o negócio do que contatar preventivamente um cliente que não ia cancelar (falso positivo). Por isso o modelo foi ajustado para maximizar a detecção de clientes em risco, mesmo aceitando mais falsos positivos.
 
+## 🤖 Agente de IA (RAG + Function Calling)
+
+Além da API de previsão, o projeto conta com um agente conversacional que combina duas capacidades:
+
+1. **Function calling**: quando o usuário fornece os dados de um cliente específico, o agente chama a API `/predict` automaticamente e traduz o resultado em linguagem natural, explicando os fatores de risco.
+2. **RAG (Retrieval-Augmented Generation)**: para perguntas conceituais sobre churn (o que é, fatores de risco, recomendações de retenção), o agente busca contexto numa base de conhecimento vetorizada (ChromaDB) antes de responder.
+
+### Stack do agente
+- **LLM:** Gemini (via `langchain-google-genai`)
+- **Orquestração:** LangChain
+- **Banco vetorial:** ChromaDB
+- **Embeddings:** `gemini-embedding-001`
+
+### Exemplo de interação
+
+```
+Você: Um cliente com tenure de 3 meses, contrato mensal, sem serviços de
+segurança, cobrança de 95/mês. Qual o risco de cancelamento?
+
+Agente: Com base nas informações fornecidas, o cliente apresenta um alto
+risco de cancelamento (55,89%).
+
+Fatores que contribuem para este risco:
+1. Tempo de contrato curto (tenure de 3 meses)
+2. Contrato mensal, sem fidelidade
+3. Ausência de serviços de proteção (segurança online, suporte técnico)
+4. Forma de pagamento associada a maior índice de churn
+
+Recomendações de retenção:
+- Oferecer desconto para migração para contrato anual
+- Incluir suporte técnico gratuito por período de teste
+```
+
 ## 🛠️ Stack técnica
 
 - **Linguagem:** Python 3.11
 - **Análise e modelagem:** Pandas, Scikit-learn
-- **Rastreamento de experimentos:** MLflow (tracking de parâmetros, métricas e versionamento de modelo)
+- **Rastreamento de experimentos:** MLflow
 - **API:** FastAPI + Uvicorn
 - **Containerização:** Docker
+- **Agente de IA:** LangChain + Gemini API
+- **Banco vetorial (RAG):** ChromaDB
 
 ## 🚀 Como rodar o projeto
 
 ### Pré-requisitos
 - Python 3.11+
 - Docker Desktop (opcional, para rodar via container)
+- Chave de API do Gemini ([Google AI Studio](https://aistudio.google.com))
 
-### Rodando localmente
+### Configuração inicial
 
 ```bash
 # Clone o repositório
@@ -77,24 +117,46 @@ python -m venv .venv
 # Instale as dependências
 pip install -r requirements.txt
 
-# Treine o modelo
+# Crie um arquivo .env na raiz com sua chave do Gemini
+# GEMINI_API_KEY=sua_chave_aqui
+```
+
+### 1. Treinar o modelo
+
+```bash
 cd src
 python train.py
+```
 
-# Suba a API
+### 2. Rodar a API
+
+```bash
 uvicorn api:app --reload
 ```
 
 Acesse a documentação interativa em `http://127.0.0.1:8000/docs`
 
-### Rodando via Docker
+### 3. Rodando via Docker (alternativa aos passos 1-2)
 
 ```bash
 docker build -t churn-api .
 docker run -p 8000:8000 churn-api
 ```
 
-Acesse `http://127.0.0.1:8000/docs`
+### 4. Construir a base de conhecimento do agente (RAG)
+
+```bash
+python src/build_knowledge_base.py
+```
+
+### 5. Conversar com o agente
+
+Com a API rodando (passo 2 ou 3) em um terminal, abra outro terminal:
+
+```bash
+cd src
+python chat_test.py
+```
 
 ### Visualizando os experimentos no MLflow
 
@@ -146,6 +208,7 @@ Acesse `http://localhost:5000`
 churn-prediction-copilot/
 ├── data/
 │   ├── raw/                     # dataset original
+│   ├── knowledge_base/          # documentos usados no RAG
 │   └── processed_churn.csv      # dataset pré-processado
 ├── models/
 │   ├── churn_model.pkl          # modelo treinado
@@ -155,7 +218,11 @@ churn-prediction-copilot/
 ├── src/
 │   ├── train.py                 # script de treino
 │   ├── api.py                   # API FastAPI
-│   └── utils.py                 # funções de pré-processamento compartilhadas
+│   ├── utils.py                 # funções de pré-processamento compartilhadas
+│   ├── build_knowledge_base.py  # indexação dos documentos no ChromaDB
+│   ├── tools.py                 # ferramentas do agente (predict + RAG)
+│   ├── agent.py                 # lógica do agente conversacional
+│   └── chat_test.py             # script de teste do agente via terminal
 ├── Dockerfile
 ├── requirements.txt              # dependências de produção
 ├── requirements-dev.txt          # dependências de desenvolvimento (Jupyter, etc.)
@@ -164,8 +231,10 @@ churn-prediction-copilot/
 
 ## 🔮 Próximos passos (roadmap)
 
+- [x] Integrar um agente de IA generativa (LLM) para explicar as previsões em linguagem natural
+- [x] Implementar RAG para perguntas conceituais sobre churn
+- [ ] Unir tudo numa interface visual (Streamlit)
 - [ ] Adicionar explicabilidade do modelo com SHAP (por que cada previsão foi feita)
-- [ ] Integrar um agente de IA generativa (LLM) para explicar as previsões em linguagem natural
 - [ ] Adicionar testes automatizados (pytest)
 - [ ] Deploy em nuvem (Render/Railway)
 
