@@ -58,9 +58,12 @@ def predict_churn(
         "TotalCharges": TotalCharges,
     }
 
-    response = requests.post("http://127.0.0.1:8000/predict", json=payload)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.post("http://127.0.0.1:8000/predict", json=payload, timeout=5)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Não foi possível conectar à API de previsão. Verifique se ela está rodando. Detalhe: {str(e)}"}
 
 
 persist_directory = os.path.join(
@@ -68,7 +71,7 @@ persist_directory = os.path.join(
 )
 
 embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
+    model=os.getenv("GEMINI_EMBEDDING_MODEL"),
     google_api_key=api_key
 )
 

@@ -31,7 +31,7 @@ chunks = text_splitter.split_documents(documents)
 print(f"✂️  {len(chunks)} chunks gerados")
 
 embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
+    model=os.getenv("GEMINI_EMBEDDING_MODEL"),
     google_api_key=api_key
 )
 
