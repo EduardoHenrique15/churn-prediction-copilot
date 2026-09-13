@@ -1,8 +1,15 @@
 .venv/
 mlruns/
+mlflow.db
 data/raw/
 notebooks/
 __pycache__/
 *.pyc
 .git/
-mlflow.db
+
+
+.env
+.env.*
+!.env.example
+chroma_db/
+.streamlit/secrets.toml
