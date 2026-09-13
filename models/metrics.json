@@ -1,0 +1,20 @@
+{
+  "metrics": {
+    "accuracy": 0.75,
+    "precision": 0.52,
+    "recall": 0.77,
+    "f1_score": 0.62
+  },
+  "n_samples": 7032,
+  "n_features": 30,
+  "top_features": [
+    { "feature": "tenure", "importance": 0.1737 },
+    { "feature": "TotalCharges", "importance": 0.1383 },
+    { "feature": "MonthlyCharges", "importance": 0.1095 },
+    { "feature": "Contract_Two year", "importance": 0.0989 },
+    { "feature": "InternetService_Fiber optic", "importance": 0.0663 },
+    { "feature": "PaymentMethod_Electronic check", "importance": 0.0509 },
+    { "feature": "OnlineSecurity_Yes", "importance": 0.0397 },
+    { "feature": "Contract_One year", "importance": 0.0389 }
+  ]
+}

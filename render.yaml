@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: churn-prediction-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true

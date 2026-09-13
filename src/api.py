@@ -1,45 +1,83 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import pandas as pd
-import joblib
+"""API REST de previsão de churn (FastAPI).
+
+Sobe com: `uvicorn src.api:app --reload` a partir da raiz do projeto.
+"""
+
+import logging
 import os
-from utils import preprocess_features, align_columns    
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "churn_model.pkl")
-COLUMNS_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "feature_columns.pkl")
+import joblib
+import pandas as pd
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
-model = joblib.load(MODEL_PATH)
-expected_columns = joblib.load(COLUMNS_PATH)
+from src.utils import (
+    ContractType,
+    Gender,
+    InternetServiceType,
+    PaymentMethodType,
+    YesNo,
+    YesNoInternet,
+    YesNoPhone,
+    align_columns,
+    preprocess_features,
+)
+
+logger = logging.getLogger(__name__)
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "churn_model.pkl")
+COLUMNS_PATH = os.path.join(BASE_DIR, "models", "feature_columns.pkl")
+
+RISK_THRESHOLD_HIGH = 0.65
+RISK_THRESHOLD_MEDIUM = 0.35
+
+try:
+    model = joblib.load(MODEL_PATH)
+    expected_columns = joblib.load(COLUMNS_PATH)
+except FileNotFoundError as exc:
+    raise RuntimeError(
+        f"Modelo não encontrado em {MODEL_PATH}. "
+        "Rode `python -m src.train` antes de subir a API."
+    ) from exc
 
 app = FastAPI(
     title="Churn Prediction API",
-    description="API para prever cancelamento de clientes (churn) usando RandomForest",
-    version="1.0.0"
+    description=(
+        "Prevê a probabilidade de cancelamento de um cliente de telecom "
+        "usando um RandomForestClassifier treinado no dataset Telco Customer Churn."
+    ),
+    version="1.1.0",
 )
 
-class CustomerData(BaseModel):
-    gender: str
-    SeniorCitizen: int
-    Partner: str
-    Dependents: str
-    tenure: int
-    PhoneService: str
-    MultipleLines: str
-    InternetService: str
-    OnlineSecurity: str
-    OnlineBackup: str
-    DeviceProtection: str
-    TechSupport: str
-    StreamingTV: str
-    StreamingMovies: str
-    Contract: str
-    PaperlessBilling: str
-    PaymentMethod: str
-    MonthlyCharges: float
-    TotalCharges: float
 
-    class Config:
-        json_schema_extra = {
+class CustomerData(BaseModel):
+    """Perfil do cliente. Os campos categóricos aceitam apenas os valores
+    presentes no dataset de treino — qualquer outro valor é rejeitado com 422
+    em vez de gerar uma previsão sobre dados que o modelo nunca viu."""
+
+    gender: Gender
+    SeniorCitizen: int = Field(ge=0, le=1)
+    Partner: YesNo
+    Dependents: YesNo
+    tenure: int = Field(ge=0, le=120, description="Meses de contrato")
+    PhoneService: YesNo
+    MultipleLines: YesNoPhone
+    InternetService: InternetServiceType
+    OnlineSecurity: YesNoInternet
+    OnlineBackup: YesNoInternet
+    DeviceProtection: YesNoInternet
+    TechSupport: YesNoInternet
+    StreamingTV: YesNoInternet
+    StreamingMovies: YesNoInternet
+    Contract: ContractType
+    PaperlessBilling: YesNo
+    PaymentMethod: PaymentMethodType
+    MonthlyCharges: float = Field(ge=0, le=1000)
+    TotalCharges: float = Field(ge=0, le=100_000)
+
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "gender": "Female",
                 "SeniorCitizen": 0,
@@ -59,31 +97,51 @@ class CustomerData(BaseModel):
                 "PaperlessBilling": "Yes",
                 "PaymentMethod": "Electronic check",
                 "MonthlyCharges": 85.5,
-                "TotalCharges": 450.75
+                "TotalCharges": 450.75,
             }
         }
+    }
+
+
+class PredictionResponse(BaseModel):
+    churn_prediction: bool
+    churn_probability: float
+    risk_level: str
+
+
+def _risk_level(probability: float) -> str:
+    if probability >= RISK_THRESHOLD_HIGH:
+        return "Alto"
+    if probability >= RISK_THRESHOLD_MEDIUM:
+        return "Médio"
+    return "Baixo"
+
 
 @app.get("/")
-def root():
+def root() -> dict:
     return {"status": "online", "message": "Churn Prediction API está no ar"}
 
-@app.post("/predict")
-def predict(data: CustomerData):
+
+@app.get("/health")
+def health() -> dict:
+    """Usado pelo healthcheck do Render e pela interface para detectar
+    se o serviço já saiu da hibernação do free tier."""
+    return {"status": "healthy", "model_features": len(expected_columns)}
+
+
+@app.post("/predict", response_model=PredictionResponse)
+def predict(data: CustomerData) -> PredictionResponse:
+    df_input = pd.DataFrame([data.model_dump()])
+
     try:
-        input_dict = data.model_dump()
-        df_input = pd.DataFrame([input_dict])
+        df_final = align_columns(preprocess_features(df_input), expected_columns)
+        probability = float(model.predict_proba(df_final)[0][1])
+    except Exception:
+        logger.exception("Falha ao gerar previsão")
+        raise HTTPException(status_code=500, detail="Erro interno ao gerar a previsão.")
 
-        df_encoded = preprocess_features(df_input)
-        df_final = align_columns(df_encoded, expected_columns)
-
-        prediction = model.predict(df_final)[0]
-        probability = model.predict_proba(df_final)[0][1]
-
-        return {
-            "churn_prediction": bool(prediction),
-            "churn_probability": round(float(probability), 4),
-            "risk_level": "Alto" if probability >= 0.5 else "Baixo"
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erro ao processar previsão: {str(e)}")
+    return PredictionResponse(
+        churn_prediction=probability >= 0.5,
+        churn_probability=round(probability, 4),
+        risk_level=_risk_level(probability),
+    )

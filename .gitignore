@@ -6,3 +6,4 @@ mlflow.db
 data/raw/
 .env
 chroma_db/
+.streamlit/secrets.toml

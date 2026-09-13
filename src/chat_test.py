@@ -1,11 +1,20 @@
-from agent import chat
+"""Teste do agente via terminal: `python -m src.chat_test`"""
 
-print("🤖 Agente de Churn iniciado. Digite 'sair' para encerrar.\n")
+from src.agent import chat
 
-while True:
-    user_input = input("Você: ")
-    if user_input.lower() in ["sair", "exit", "quit"]:
-        break
 
-    response = chat(user_input)
-    print(f"\nAgente: {response}\n")
+def main() -> None:
+    print("Agente de Churn iniciado. Digite 'sair' para encerrar.\n")
+    history = []
+
+    while True:
+        user_input = input("Você: ")
+        if user_input.lower() in {"sair", "exit", "quit"}:
+            break
+
+        response, history = chat(user_input, history)
+        print(f"\nAgente: {response}\n")
+
+
+if __name__ == "__main__":
+    main()

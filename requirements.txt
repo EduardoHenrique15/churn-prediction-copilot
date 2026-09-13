@@ -1,11 +1,17 @@
+# API
 fastapi==0.141.1
 uvicorn==0.52.4
+pydantic==2.13.5
+
+# Modelo
 pandas==3.0.5
 scikit-learn==1.9.0
 joblib==1.6.0
-mlflow==3.16.0
-pydantic==2.13.5
-python-dotenv==1.2.3
+
+# Interface
+streamlit==1.63.0
+
+# Agente (LLM + RAG)
 langchain==1.4.0
 langchain-core==1.6.2
 langchain-google-genai==4.4.0
@@ -13,4 +19,7 @@ langchain-community==0.4.2
 langchain-chroma==1.1.0
 langchain-text-splitters==1.1.2
 chromadb==1.5.9
+
+# Utilitários
+python-dotenv==1.2.3
 requests==2.34.2

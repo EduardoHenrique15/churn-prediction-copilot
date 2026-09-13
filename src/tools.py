@@ -1,12 +1,27 @@
+"""Ferramentas do agente: previsão via API (function calling) e busca no RAG."""
+
 import os
+
 import requests
+from dotenv import load_dotenv
+from langchain_chroma import Chroma
 from langchain_core.tools import tool
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma
-from dotenv import load_dotenv
 
 load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
+
+API_URL = os.getenv("CHURN_API_URL", "http://127.0.0.1:8000").rstrip("/")
+
+REQUEST_TIMEOUT = int(os.getenv("CHURN_API_TIMEOUT", "60"))
+
+EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001")
+
+CHROMA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chroma_db"
+)
+
+_retriever = None
+
 
 @tool
 def predict_churn(
@@ -59,28 +74,48 @@ def predict_churn(
     }
 
     try:
-        response = requests.post("http://127.0.0.1:8000/predict", json=payload, timeout=5)
+        response = requests.post(
+            f"{API_URL}/predict", json=payload, timeout=REQUEST_TIMEOUT
+        )
+    except requests.exceptions.RequestException as exc:
+        return {
+            "error": (
+                f"Não foi possível conectar à API de previsão em {API_URL}. "
+                f"Verifique se ela está rodando. Detalhe: {exc}"
+            )
+        }
+
+    if response.status_code == 422:
+        return {
+            "error": "Valores inválidos para o modelo.",
+            "detail": response.json().get("detail"),
+        }
+
+    try:
         response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Não foi possível conectar à API de previsão. Verifique se ela está rodando. Detalhe: {str(e)}"}
+    except requests.exceptions.HTTPError as exc:
+        return {"error": f"A API retornou erro: {exc}"}
+
+    return response.json()
 
 
-persist_directory = os.path.join(
-    os.path.dirname(__file__), "..", "chroma_db"
-)
+def _get_retriever():
+    """Inicializa o retriever sob demanda.
 
-embeddings = GoogleGenerativeAIEmbeddings(
-    model=os.getenv("GEMINI_EMBEDDING_MODEL"),
-    google_api_key=api_key
-)
-
-vectorstore = Chroma(
-    persist_directory=persist_directory,
-    embedding_function=embeddings
-)
-
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    Feito de forma preguiçosa para que importar este módulo não exija a chave
+    do Gemini nem uma base vetorial pronta — importante porque a interface
+    importa as ferramentas antes de saber se o usuário vai usar o chat.
+    """
+    global _retriever
+    if _retriever is None:
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model=EMBEDDING_MODEL, google_api_key=os.getenv("GEMINI_API_KEY")
+        )
+        vectorstore = Chroma(
+            persist_directory=CHROMA_DIR, embedding_function=embeddings
+        )
+        _retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    return _retriever
 
 
 @tool
@@ -91,5 +126,13 @@ def search_churn_knowledge(query: str) -> str:
     Use esta ferramenta para perguntas abertas/conceituais sobre churn,
     NÃO para prever um cliente específico.
     """
-    docs = retriever.invoke(query)
+    if not os.path.isdir(CHROMA_DIR):
+        return (
+            "A base de conhecimento ainda não foi construída. "
+            "Rode `python -m src.build_knowledge_base` para indexá-la."
+        )
+
+    docs = _get_retriever().invoke(query)
+    if not docs:
+        return "Nenhum documento relevante encontrado na base de conhecimento."
     return "\n\n---\n\n".join(doc.page_content for doc in docs)
