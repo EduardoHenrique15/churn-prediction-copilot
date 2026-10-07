@@ -246,3 +246,19 @@ class TestRateLimit:
             "/predict", json=make_customer(), headers={"X-Forwarded-For": "2.2.2.2"}
         )
         assert (first.status_code, other.status_code) == (200, 200)
+
+
+def test_rate_limit_nao_e_driblado_trocando_o_x_forwarded_for(monkeypatch):
+    """O cliente controla o começo do X-Forwarded-For; só o último endereço
+    (anexado pelo proxy) identifica quem está chamando."""
+    monkeypatch.setattr(api_module, "RATE_LIMIT_PER_MINUTE", 3)
+    monkeypatch.setattr(api_module, "_hits", api_module.defaultdict(api_module.deque))
+    codes = [
+        client.post(
+            "/predict",
+            json=make_customer(),
+            headers={"X-Forwarded-For": f"10.0.0.{i}, 203.0.113.7"},
+        ).status_code
+        for i in range(5)
+    ]
+    assert codes.count(429) == 2

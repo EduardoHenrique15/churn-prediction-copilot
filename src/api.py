@@ -82,7 +82,7 @@ app.add_middleware(
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded.split(",")[-1].strip()
     return request.client.host if request.client else "desconhecido"
 
 
@@ -100,8 +100,8 @@ async def rate_limit_and_log(request: Request, call_next):
                 headers={"Retry-After": "60"},
             )
         hits.append(now)
-        if len(_hits) > 10_000:  # evita crescer sem limite com IPs antigos
-            for ip in [ip for ip, q in _hits.items() if not q]:
+        if len(_hits) > 10_000:  # descarta IPs sem requisição no último minuto
+            for ip in [ip for ip, q in _hits.items() if not q or now - q[-1] > 60]:
                 del _hits[ip]
 
     started = time.perf_counter()

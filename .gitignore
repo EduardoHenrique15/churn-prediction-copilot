@@ -8,6 +8,7 @@ __pycache__/
 .coverage
 htmlcov/
 .ipynb_checkpoints/
+docs/linkedin-post.md
 
 # Experimentos (MLflow) e dados brutos (baixe do Kaggle — ver README)
 mlruns/
@@ -16,5 +17,10 @@ data/raw/
 
 # Segredos
 .env
+.env.*
+!.env.example
 .streamlit/secrets.toml
 desktop.ini
+
+# Base vetorial do RAG (gerada por `python -m src.build_knowledge_base`)
+chroma_db/
