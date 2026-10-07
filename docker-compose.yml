@@ -1,0 +1,40 @@
+# Sobe API + interface juntas: `docker compose up --build`
+# Em produção os dois serviços são publicados separadamente (Render +
+# Streamlit Community Cloud — ver docs/deploy.md). Este arquivo roda o
+# projeto inteiro localmente só com o Docker instalado.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      # O nome do serviço "api" resolve pelo DNS interno do Compose.
+      CHURN_API_URL: http://api:8000
+      # ${VAR:-} fica vazio se a variável não existir no shell nem no .env da
+      # raiz (o Compose lê esse .env sozinho). Sem GEMINI_API_KEY o assistente
+      # mostra as respostas gravadas; o resto da interface funciona normalmente.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.6-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-models/gemini-embedding-001}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

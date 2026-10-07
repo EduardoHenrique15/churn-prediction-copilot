@@ -1,0 +1,16 @@
+# Normaliza texto para LF no repositório, independentemente do que o
+# checkout local usa (o Git for Windows converte de volta para CRLF no
+# working directory se core.autocrlf=true, sem gerar diff).
+* text=auto eol=lf
+
+# Binários: nunca aplicar conversão de fim de linha nem diff textual.
+*.pkl binary
+*.db binary
+*.sqlite3 binary
+*.bin binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff2 binary

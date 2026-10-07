@@ -1,9 +1,20 @@
+# Python
 .venv/
+venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Experimentos (MLflow) e dados brutos (baixe do Kaggle — ver README)
 mlruns/
 mlflow.db
 data/raw/
+
+# Segredos
 .env
-chroma_db/
 .streamlit/secrets.toml
+desktop.ini

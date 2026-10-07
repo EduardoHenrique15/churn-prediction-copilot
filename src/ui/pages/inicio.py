@@ -1,0 +1,225 @@
+"""Página inicial: o projeto em 30 segundos, para quem chega pelo link."""
+
+from __future__ import annotations
+
+import streamlit as st
+
+from src.business import fmt_brl, fmt_int, fmt_num, fmt_pct
+from src.ui import components
+from src.ui.data import metrics
+from src.ui.html import esc, ui_html
+
+STACK = [
+    "Python",
+    "scikit-learn",
+    "FastAPI",
+    "Streamlit",
+    "LangChain",
+    "Gemini",
+    "ChromaDB",
+    "Docker",
+    "MLflow",
+    "GitHub Actions",
+]
+
+EXPLORE = [
+    (
+        "cliente",
+        "Cliente",
+        ":material/person_search:",
+        "Monte um perfil e veja o risco, a recomendação, o que pesou na previsão e ofertas que "
+        "mudariam o risco.",
+    ),
+    (
+        "carteira",
+        "Carteira",
+        ":material/groups:",
+        "Envie um CSV com vários clientes: validação linha a linha, fila de contato e monitor de "
+        "mudança no perfil da base.",
+    ),
+    (
+        "estrategia",
+        "Estratégia",
+        ":material/payments:",
+        "Ajuste o custo da oferta e o valor do cliente e veja o novo ponto de corte e o retorno "
+        "da campanha.",
+    ),
+    (
+        "modelo",
+        "Modelo",
+        ":material/fact_check:",
+        "Como o modelo foi escolhido, calibração, o que ele aprendeu, onde erra mais e seus "
+        "limites.",
+    ),
+    (
+        "assistente",
+        "Assistente",
+        ":material/smart_toy:",
+        "Pergunte em português: o agente consulta o modelo (function calling) e a base de "
+        "conhecimento (RAG).",
+    ),
+]
+
+
+def _hero() -> None:
+    stack = "".join(f"<span>{esc(item)}</span>" for item in STACK)
+    ui_html(
+        '<div class="cr-hero">'
+        '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">'
+        '<p class="cr-eyebrow" style="margin:0">Machine learning de ponta a ponta</p>'
+        f"{components.status_chip()}</div>"
+        '<div class="cr-hero-title" role="heading" aria-level="1" style="margin-top:14px">Churn Radar</div>'
+        '<p class="cr-hero-text">Descobre quais clientes de uma operadora de telecom estão perto '
+        "de cancelar, explica o porquê de cada previsão e calcula se vale a pena agir — com um "
+        "modelo calibrado, uma API publicada e um assistente de IA que consulta o modelo e uma "
+        "base de conhecimento.</p>"
+        f'<div class="cr-stack">{stack}</div>'
+        "</div>"
+    )
+    from src.ui.nav import PAGES
+
+    st.write("")
+    with st.container(horizontal=True, gap="small", key="cta"):
+        st.page_link(PAGES["cliente"], label="Analisar um cliente", icon=":material/arrow_forward:")
+        st.page_link(
+            PAGES["modelo"], label="Ver como o modelo foi escolhido", icon=":material/fact_check:"
+        )
+        st.page_link(
+            PAGES["assistente"], label="Conversar com o assistente", icon=":material/smart_toy:"
+        )
+
+
+def _numbers() -> None:
+    m = metrics()
+    if not m:
+        return
+    op, test, ci = m["operational"], m["test_metrics"], m["ci95"]
+    components.section(
+        "Resultados",
+        "Em clientes que o modelo nunca viu",
+        f"Avaliação única em {fmt_int(m['n_test'])} clientes separados antes do treino.",
+    )
+    components.kpis(
+        [
+            {
+                "label": "Cancelamentos encontrados",
+                "value": fmt_pct(op["recall"], 0),
+                "note": f"contatando {fmt_pct(op['contact_rate'], 0)} da base — a outra metade "
+                "da lista seria desperdício sem o modelo",
+                "accent": True,
+            },
+            {
+                "label": "ROC-AUC",
+                "value": fmt_num(test["roc_auc"], 2),
+                "note": f"ordena bem quem cancela antes de quem fica (intervalo de 95%: "
+                f"{fmt_num(ci['roc_auc'][0], 2)} a {fmt_num(ci['roc_auc'][1], 2)})",
+            },
+            {
+                "label": "Erro de calibração",
+                "value": f"{fmt_num(test['ece'] * 100, 1)} pp",
+                "note": "a probabilidade prevista fica perto da taxa real de cancelamento",
+            },
+            {
+                "label": "Valor por 1.000 clientes",
+                "value": fmt_brl(op["net_value_per_1000"]),
+                "note": "retorno líquido estimado da campanha, com hipóteses de custo ajustáveis",
+            },
+        ]
+    )
+
+
+def _how() -> None:
+    m = metrics()
+    components.section(
+        "Como funciona",
+        "Do dado bruto ao produto",
+        "Cada etapa foi pensada para o número na tela ser confiável — e para o projeto rodar de "
+        "graça.",
+    )
+    n = fmt_int(m.get("n_samples", 7032))
+    steps = [
+        (
+            "Dados",
+            f"{n} clientes reais de uma operadora (dataset público da IBM). 20% ficam de fora "
+            "como teste e só são usados na avaliação final.",
+        ),
+        (
+            "Modelo",
+            "Quatro candidatos comparados com validação cruzada 5×3. Vence o mais simples dentro "
+            "do empate técnico: uma regressão logística calibrada.",
+        ),
+        (
+            "Decisão",
+            "O corte de contato sai de uma conta de valor — oferta × chance de sucesso × valor do "
+            "cliente —, não do 0,5 padrão.",
+        ),
+        (
+            "Produto",
+            "API <code>FastAPI</code> no Render, interface em Streamlit e um assistente com "
+            "Gemini que usa o modelo por function calling e a documentação por RAG.",
+        ),
+    ]
+    cards = "".join(
+        f'<div class="cr-step"><div class="cr-step-n">Etapa {i}</div>'
+        f'<div class="cr-step-t">{esc(title)}</div><div class="cr-step-d">{text}</div></div>'
+        for i, (title, text) in enumerate(steps, start=1)
+    )
+    ui_html(f'<div class="cr-steps">{cards}</div>')
+
+
+def _decisions() -> None:
+    m = metrics()
+    redundancy = m.get("redundancy", {})
+    r2 = fmt_num(redundancy.get("monthly_r2_services", 0.999), 3)
+    components.section(
+        "Decisões de projeto",
+        "O que diferencia este modelo",
+        "Escolhas que um projeto de churn costuma pular — e o que cada uma resolve.",
+    )
+    cards = [
+        (
+            "Probabilidades em que dá para confiar",
+            "Sem reponderação de classes, que inflava o risco médio da base. Um cliente com 30% de "
+            "risco é, de fato, um cliente em que 3 de cada 10 cancelam.",
+        ),
+        (
+            "O mais simples dentro do ruído",
+            "O Gradient Boosting teve a maior média, mas a diferença ficou abaixo de 1 erro-padrão. "
+            "A regressão logística ganhou: explicação exata e uma API mais leve.",
+        ),
+        (
+            "Variáveis que não enganam",
+            f"A mensalidade é determinada pelos serviços contratados (R² = {r2}). Fora do modelo, "
+            "os pesos voltam a fazer sentido de negócio, sem perder qualidade.",
+        ),
+        (
+            "Sem tela de espera",
+            "A API gratuita hiberna depois de 15 minutos. Enquanto ela acorda, o app calcula a "
+            "mesma previsão aqui, com o mesmo modelo, e avisa de onde veio o número.",
+        ),
+    ]
+    html = "".join(
+        f'<div class="cr-card"><div class="cr-reco-title" style="margin-bottom:6px">{esc(t)}</div>'
+        f'<div class="cr-text" style="font-size:13.5px">{d}</div></div>'
+        for t, d in cards
+    )
+    ui_html(f'<div class="cr-decisions">{html}</div>')
+
+
+def _explore() -> None:
+    from src.ui.nav import PAGES
+
+    components.section("Explore", "O que dá para fazer aqui")
+    cols = st.columns(len(EXPLORE), gap="small")
+    for col, (path, title, icon, text) in zip(cols, EXPLORE, strict=True):
+        with col, st.container(border=True, height="stretch"):
+            ui_html(f'<div class="cr-step-d" style="min-height:108px">{esc(text)}</div>')
+            st.page_link(PAGES[path], label=title, icon=icon)
+
+
+def render() -> None:
+    _hero()
+    _numbers()
+    _how()
+    _decisions()
+    _explore()

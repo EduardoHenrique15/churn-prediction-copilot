@@ -1,9 +1,15 @@
+# Blueprint do Render: Dashboard → New → Blueprint → selecione o repositório.
 services:
   - type: web
-    name: churn-prediction-api
+    name: churn-radar-api
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
     region: oregon
     healthCheckPath: /health
     autoDeploy: true
+    envVars:
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "120"
+      - key: CORS_ALLOW_ORIGINS
+        value: "*"

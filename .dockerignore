@@ -1,15 +1,25 @@
+# Padrões com **/ valem em qualquer pasta (sem eles, só na raiz).
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/.ipynb_checkpoints/
+.git/
+.github/
 .venv/
+venv/
 mlruns/
 mlflow.db
 data/raw/
 notebooks/
-__pycache__/
-*.pyc
-.git/
+tests/
+docs/
+*.log
+.coverage
+htmlcov/
 
-
+# Segredos nunca entram na imagem.
 .env
 .env.*
 !.env.example
-chroma_db/
 .streamlit/secrets.toml

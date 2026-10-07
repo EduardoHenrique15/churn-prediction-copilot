@@ -1,15 +1,16 @@
-# O que é Churn de Clientes
+# O que é churn de clientes
 
-Churn (ou cancelamento) é a taxa de clientes que deixam de usar um serviço em um
-determinado período. Para empresas baseadas em assinatura, como telecomunicações,
-é uma das métricas mais importantes, pois adquirir um cliente novo custa em média
-5 a 7 vezes mais do que reter um cliente existente.
+## Definição
 
-Existem dois tipos principais de churn:
-- **Churn voluntário**: o cliente decide cancelar ativamente (insatisfação, preço,
-  concorrência).
-- **Churn involuntário**: o cancelamento acontece por falha de pagamento ou outros
-  motivos não relacionados à decisão consciente do cliente.
+Churn (ou cancelamento) é quando um cliente deixa de usar um serviço. A taxa de churn é a fração de clientes que cancelam em um período. Em negócios de assinatura, como telecomunicações, é uma das métricas mais acompanhadas: cada cliente perdido leva embora a receita de todos os meses seguintes, e conquistar um cliente novo costuma custar bem mais do que manter um atual.
 
-Este projeto foca no churn voluntário, prevendo a probabilidade de cancelamento
-com base no perfil e comportamento do cliente.
+## Tipos de churn
+
+- Churn voluntário: o cliente decide cancelar (insatisfação, preço, concorrência, mudança de necessidade).
+- Churn involuntário: o cancelamento acontece por falha de pagamento ou outro motivo que não é uma decisão do cliente.
+
+O Churn Radar trata do churn voluntário.
+
+## Churn no dataset do projeto
+
+O projeto usa o dataset público IBM Telco Customer Churn: 7.043 clientes de uma operadora de telecomunicações dos EUA, com perfil, serviços contratados, contrato e cobrança de cada um. 26,5% desses clientes cancelaram (1.869 de 7.043). Esse é o ponto de partida para ler qualquer risco: um cliente com 60% de probabilidade de cancelar tem mais que o dobro do risco de um cliente típico da base.

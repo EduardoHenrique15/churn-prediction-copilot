@@ -1,0 +1,11 @@
+# Imagem da API (Dockerfile → Render, plano gratuito com 512 MB de RAM).
+# Só o necessário para servir o modelo: sem Streamlit, sem LangChain, sem SHAP.
+# O modelo publicado é uma regressão logística, explicada de forma exata sem
+# SHAP. Se um retreino escolher um modelo de árvore, `python -m src.train`
+# avisa, e `shap` precisa entrar nesta lista (tests/test_packaging.py confere).
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+pandas==3.0.5
+scikit-learn==1.9.0
+joblib==1.6.0

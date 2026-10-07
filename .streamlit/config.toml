@@ -1,13 +1,57 @@
+# Identidade visual do Churn Radar: fundo navy, ciano/índigo, Inter para
+# texto e JetBrains Mono para dados. As fontes são servidas pelo próprio app
+# (static/fonts, licença OFL) — sem depender do Google Fonts.
+
+[server]
+headless = true
+enableStaticServing = true
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false
+
+[client]
+# Visitante não vê traceback: erros inesperados mostram só o tipo do erro.
+showErrorDetails = "type"
+toolbarMode = "minimal"
+
 [theme]
 base = "dark"
 primaryColor = "#22D3EE"
 backgroundColor = "#05070D"
-secondaryBackgroundColor = "#0B1120"
-textColor = "#E2E8F0"
-font = "sans serif"
+secondaryBackgroundColor = "#0F172A"
+textColor = "#E6EDF7"
+linkColor = "#67E8F9"
+linkUnderline = false
+font = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+headingFont = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+codeFont = "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace"
+baseFontSize = 15
+headingFontWeights = [700, 650, 600, 600, 600, 600]
+baseRadius = "0.7rem"
+buttonRadius = "0.6rem"
+borderColor = "#1E293B"
+dataframeBorderColor = "#1E293B"
+dataframeHeaderBackgroundColor = "#0B1120"
+showWidgetBorder = true
+codeBackgroundColor = "#0B1120"
+codeTextColor = "#A5F3FC"
+greenColor = "#34D399"
+yellowColor = "#FBBF24"
+redColor = "#F87171"
+blueColor = "#3A88E0"
+orangeColor = "#E36A36"
+violetColor = "#818CF8"
+grayColor = "#8A98AE"
 
-[server]
-headless = true
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fonts/inter-latin-wght-normal.woff2"
+weight = "100 900"
+style = "normal"
 
-[browser]
-gatherUsageStats = false
+[[theme.fontFaces]]
+family = "JetBrains Mono"
+url = "app/static/fonts/jetbrains-mono-latin-wght-normal.woff2"
+weight = "100 800"
+style = "normal"

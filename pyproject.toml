@@ -1,0 +1,45 @@
+[project]
+name = "churn-radar"
+version = "2.0.0"
+description = "Previsão de cancelamento de clientes com modelo calibrado, API, interface e assistente de IA."
+requires-python = "==3.11.*"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+# notebooks/ é análise exploratória, não código de produção.
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+# E/F: erros e código morto (pyflakes). I: imports ordenados. UP: sintaxe
+# moderna do Python 3.11. B: armadilhas comuns (bugbear). SIM: simplificações.
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501", # o ruff format já cuida do comprimento; o CSS de STYLES tem linhas longas de propósito
+    "B008", # FastAPI/Streamlit usam chamadas em valores padrão por design
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Os testes marcados como `integration` (tests/test_agent_eval.py) chamam o
+# Gemini de verdade e gastam a cota gratuita (~20 requisições/dia). Ficam
+# fora do `pytest` padrão; rode explicitamente com `pytest -m integration`.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: usa rede e a chave do Gemini (gasta cota; fora do pytest padrão)",
+]
+
+[tool.coverage.run]
+source = ["src", "app"]
+omit = [
+    # Scripts de linha de comando que chamam APIs pagas/limitadas ou exigem
+    # o dataset bruto: executados à mão, não no CI.
+    "src/build_knowledge_base.py",
+    "src/chat_test.py",
+    "src/make_examples.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

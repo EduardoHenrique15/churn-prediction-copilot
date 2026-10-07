@@ -1,20 +1,147 @@
 {
-  "metrics": {
-    "accuracy": 0.75,
-    "precision": 0.52,
-    "recall": 0.77,
-    "f1_score": 0.62
+  "schema_version": 2,
+  "model_version": "2.0.0",
+  "trained_at": "2026-09-28T01:28:48+00:00",
+  "git_sha": "860f4d2",
+  "python": "3.11.9",
+  "scikit_learn": "1.9.0",
+  "model_selected": "logistic_regression",
+  "model_display_name": "Regressão logística",
+  "selection": {
+    "metric": "average_precision",
+    "rule": "1 erro-padrão",
+    "best_mean": "hist_gradient_boosting",
+    "floor": 0.6598686867686849,
+    "tied": [
+      "logistic_regression",
+      "random_forest",
+      "hist_gradient_boosting"
+    ],
+    "chosen": "logistic_regression"
   },
   "n_samples": 7032,
-  "n_features": 30,
+  "n_train": 5625,
+  "n_test": 1407,
+  "n_features": 28,
+  "excluded_features": [
+    "MonthlyCharges",
+    "TotalCharges"
+  ],
+  "redundancy": {
+    "monthly_r2_services": 0.9988413827312144,
+    "total_vs_tenure_corr": 0.825880460933202
+  },
+  "churn_rate": 0.26578498293515357,
+  "test_metrics": {
+    "average_precision": 0.6189112030564469,
+    "roc_auc": 0.8336551552769309,
+    "brier": 0.14070309777974604,
+    "log_loss": 0.42940561620520806,
+    "ece": 0.030668216587783764
+  },
+  "operational": {
+    "threshold": 0.32,
+    "precision": 0.5321637426900585,
+    "recall": 0.7299465240641712,
+    "contact_rate": 0.3646055437100213,
+    "net_value_per_1000": 21748.400852878454
+  },
+  "ci95": {
+    "average_precision": [
+      0.5664299070089509,
+      0.6732082924387747
+    ],
+    "roc_auc": [
+      0.8115384494828679,
+      0.8549357186864407
+    ],
+    "brier": [
+      0.1302200596000466,
+      0.15108599485463578
+    ],
+    "precision": [
+      0.486319921875,
+      0.5744468751939428
+    ],
+    "recall": [
+      0.6837600401606426,
+      0.7725045000818196
+    ],
+    "contact_rate": [
+      0.33971215351812367,
+      0.39019189765458423
+    ],
+    "net_value_per_1000": [
+      16487.20682302772,
+      26441.0092395167
+    ]
+  },
+  "cv_comparison": {
+    "dummy_baseline": {
+      "cv_ap_mean": 0.2657777777777777,
+      "cv_ap_std": 5.745950043620392e-17,
+      "cv_ap_se": 3.233426706998429e-17,
+      "oof_roc_auc": 0.5,
+      "oof_brier": 0.19513995061728395,
+      "oof_ece": 5.551115123125783e-17
+    },
+    "logistic_regression": {
+      "cv_ap_mean": 0.6600445574436097,
+      "cv_ap_std": 0.017098613432025754,
+      "cv_ap_se": 0.009621927253812147,
+      "oof_roc_auc": 0.8443766550325136,
+      "oof_brier": 0.13581021863750756,
+      "oof_ece": 0.010898148075306688
+    },
+    "random_forest": {
+      "cv_ap_mean": 0.6643195980930663,
+      "cv_ap_std": 0.016389644017403577,
+      "cv_ap_se": 0.009222967878551029,
+      "oof_roc_auc": 0.8475975608768533,
+      "oof_brier": 0.13484428386575886,
+      "oof_ece": 0.017273375856739097
+    },
+    "hist_gradient_boosting": {
+      "cv_ap_mean": 0.6668514156550761,
+      "cv_ap_std": 0.012408634858649402,
+      "cv_ap_se": 0.00698272888639116,
+      "oof_roc_auc": 0.8488478139399289,
+      "oof_brier": 0.13393373651535906,
+      "oof_ece": 0.009952818163808214
+    }
+  },
   "top_features": [
-    { "feature": "tenure", "importance": 0.1737 },
-    { "feature": "TotalCharges", "importance": 0.1383 },
-    { "feature": "MonthlyCharges", "importance": 0.1095 },
-    { "feature": "Contract_Two year", "importance": 0.0989 },
-    { "feature": "InternetService_Fiber optic", "importance": 0.0663 },
-    { "feature": "PaymentMethod_Electronic check", "importance": 0.0509 },
-    { "feature": "OnlineSecurity_Yes", "importance": 0.0397 },
-    { "feature": "Contract_One year", "importance": 0.0389 }
+    {
+      "feature": "tenure",
+      "importance": 0.13852044562555482
+    },
+    {
+      "feature": "InternetService_Fiber optic",
+      "importance": 0.05663867421064175
+    },
+    {
+      "feature": "Contract_Two year",
+      "importance": 0.03101931170112828
+    },
+    {
+      "feature": "Contract_One year",
+      "importance": 0.017082810527972316
+    },
+    {
+      "feature": "PaperlessBilling_Yes",
+      "importance": 0.012694938864817184
+    },
+    {
+      "feature": "TechSupport_Yes",
+      "importance": 0.007675976433113618
+    },
+    {
+      "feature": "PaymentMethod_Electronic check",
+      "importance": 0.007541392400204549
+    },
+    {
+      "feature": "MultipleLines_Yes",
+      "importance": 0.003597417707269279
+    }
   ]
 }
