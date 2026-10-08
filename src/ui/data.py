@@ -15,6 +15,13 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from src.business import (
+    DEFAULT_LTV,
+    DEFAULT_OFFER_COST,
+    DEFAULT_SUCCESS_RATE,
+    optimal_threshold,
+    risk_cuts,
+)
 from src.client import ChurnClient
 from src.ui.settings import API_TIMEOUT, API_URL
 
@@ -80,6 +87,55 @@ def test_predictions() -> np.ndarray:
 @st.cache_data(show_spinner=False)
 def example_batch(key: str) -> pd.DataFrame:
     return pd.read_csv(DATA_DIR / EXAMPLE_FILES[key][0])
+
+
+# ---------------------------------------------------------------------------
+# Hipóteses da campanha (compartilhadas entre Estratégia e Carteira)
+# ---------------------------------------------------------------------------
+# Chaves dos controles da página Estratégia. Com persist_state="session", o
+# valor sobrevive à troca de página — é assim que a Carteira enxerga o que a
+# pessoa ajustou lá. A taxa de sucesso fica em % (o controle é inteiro).
+COST_KEYS = {"ltv": "s_ltv", "offer_cost": "s_offer", "success_pct": "s_success"}
+
+
+def reference_costs() -> dict[str, float]:
+    """Hipóteses de referência do treino (models/evaluation.json)."""
+    costs = evaluation().get("cost_assumptions", {})
+    return {
+        "ltv": float(costs.get("ltv", DEFAULT_LTV)),
+        "offer_cost": float(costs.get("offer_cost", DEFAULT_OFFER_COST)),
+        "success_rate": float(costs.get("success_rate", DEFAULT_SUCCESS_RATE)),
+    }
+
+
+def campaign_policy() -> dict:
+    """Hipóteses em uso nesta sessão e a decisão que sai delas.
+
+    Sem ajuste na Estratégia, valem as de referência — e o corte e as faixas
+    são exatamente os da API (o treino escolhe o corte com a mesma função,
+    sobre as mesmas previsões fora da amostra). Com ajuste, o corte é
+    recalculado aqui, do mesmo jeito que a Estratégia mostra.
+    """
+    ref = reference_costs()
+    state = st.session_state
+    costs = {
+        "ltv": float(state.get(COST_KEYS["ltv"], ref["ltv"])),
+        "offer_cost": float(state.get(COST_KEYS["offer_cost"], ref["offer_cost"])),
+        "success_rate": float(
+            state.get(COST_KEYS["success_pct"], round(ref["success_rate"] * 100)) / 100
+        ),
+    }
+    custom = any(abs(costs[k] - ref[k]) > 1e-9 for k in ref)
+    ev = evaluation()
+    if custom and ev.get("curves"):
+        threshold = optimal_threshold(
+            ev["curves"]["oof"], costs["ltv"], costs["offer_cost"], costs["success_rate"]
+        )
+        cuts = risk_cuts(threshold)
+    else:
+        threshold = float(ev.get("optimal_threshold", 0.5))
+        cuts = ev.get("risk_level_cuts") or risk_cuts(threshold)
+    return {"costs": costs, "threshold": threshold, "cuts": cuts, "custom": custom}
 
 
 # ---------------------------------------------------------------------------

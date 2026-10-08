@@ -18,7 +18,7 @@ from src.business import (
     value_curve,
 )
 from src.ui import charts, components
-from src.ui.data import evaluation
+from src.ui.data import COST_KEYS, campaign_policy, evaluation, reference_costs
 from src.ui.html import esc, ui_html
 from src.ui.theme import ACCENT, ACCENT_2, MUTED
 
@@ -49,36 +49,66 @@ def nice_ticks(lo: float, hi: float, n: int = 5) -> list[float]:
     return [start + i * step for i in range(count + 1)]
 
 
-def _controls(costs: dict) -> tuple[float, float, float, int]:
+PERSIST = {"persist_state": "session"}
+
+
+def _reference_state() -> dict:
+    ref = reference_costs()
+    return {
+        COST_KEYS["ltv"]: int(ref["ltv"]),
+        COST_KEYS["offer_cost"]: int(ref["offer_cost"]),
+        COST_KEYS["success_pct"]: int(round(ref["success_rate"] * 100)),
+    }
+
+
+def _reset_costs() -> None:
+    st.session_state.update(_reference_state())
+
+
+def _controls() -> tuple[float, float, float, int]:
+    """Controles das hipóteses. Os valores ficam na sessão (persist_state)
+    e valem também para a página Carteira — ver data.campaign_policy."""
+    for key, value in _reference_state().items():
+        st.session_state.setdefault(key, value)
     with st.container(key="panel"):
         c1, c2, c3, c4 = st.columns(4, gap="medium")
         ltv = c1.slider(
             "Valor do cliente (R$)",
             200,
             5000,
-            int(costs.get("ltv", DEFAULT_LTV)),
             step=100,
+            key=COST_KEYS["ltv"],
             help="Quanto a empresa preserva quando um cliente que ia cancelar fica.",
+            **PERSIST,
         )
         offer = c2.slider(
             "Custo da oferta (R$)",
             10,
             500,
-            int(costs.get("offer_cost", DEFAULT_OFFER_COST)),
             step=10,
+            key=COST_KEYS["offer_cost"],
             help="Desconto, brinde ou tempo do time de retenção, por cliente contatado.",
+            **PERSIST,
         )
         success = c3.slider(
             "Chance de a oferta funcionar",
             5,
             80,
-            int(round(costs.get("success_rate", DEFAULT_SUCCESS_RATE) * 100)),
             step=5,
             format="%d%%",
+            key=COST_KEYS["success_pct"],
             help="Fração dos clientes que iam cancelar e ficam depois do contato.",
+            **PERSIST,
         )
         base = c4.number_input(
             "Clientes na carteira", min_value=1_000, max_value=5_000_000, value=10_000, step=1_000
+        )
+    if campaign_policy()["custom"]:
+        st.button(
+            "Voltar às hipóteses de referência",
+            icon=":material/restart_alt:",
+            on_click=_reset_costs,
+            help="As hipóteses ajustadas aqui também valem na página Carteira.",
         )
     return float(ltv), float(offer), success / 100, int(base)
 
@@ -89,7 +119,8 @@ def render() -> None:
         "Estratégia de retenção",
         "Vale a pena contatar quem?",
         "Ajuste as hipóteses da campanha e veja o corte que maximiza o retorno. A conta usa os "
-        "clientes de teste, que o modelo não viu no treino.",
+        "clientes de teste, que o modelo não viu no treino. As hipóteses ajustadas aqui também "
+        "valem na página Carteira.",
     )
     if not ev.get("curves"):
         components.note(
@@ -97,8 +128,7 @@ def render() -> None:
         )
         return
 
-    costs = ev.get("cost_assumptions", {})
-    ltv, offer, success, base = _controls(costs)
+    ltv, offer, success, base = _controls()
 
     # O corte é escolhido nas previsões fora da amostra do TREINO (como no
     # treino de verdade) e o resultado é medido no TESTE — escolher e medir no

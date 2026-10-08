@@ -20,11 +20,18 @@ from src.business import (
     fmt_int,
     fmt_num,
     fmt_pct,
+    risk_level,
 )
 from src.client import InvalidCustomerError
 from src.labels import FIELD_LABELS, VALUE_LABELS
 from src.ui import charts, components
-from src.ui.data import EXAMPLE_FILES, evaluation, example_batch, get_client, reference_profile
+from src.ui.data import (
+    EXAMPLE_FILES,
+    campaign_policy,
+    example_batch,
+    get_client,
+    reference_profile,
+)
 from src.ui.html import esc, md_text, ui_html
 from src.ui.theme import DANGER, OK, WARN
 from src.utils import RAW_INPUT_COLUMNS
@@ -130,13 +137,20 @@ def _validation_report(n_rows: int, n_valid: int, problems: pd.DataFrame, notes:
 
 
 def _score(
-    clean: pd.DataFrame, records: list[dict], predictions: list[dict], costs: dict
+    clean: pd.DataFrame, records: list[dict], predictions: list[dict], policy: dict
 ) -> pd.DataFrame:
+    """Decisão sobre cada cliente com as hipóteses da sessão.
+
+    A probabilidade vem do modelo (API ou cálculo local); corte, faixa e
+    valor esperado saem de `policy`. Com as hipóteses de referência, é
+    exatamente a decisão que a API devolve (mesmo corte, mesmas faixas).
+    """
+    costs, threshold, cuts = policy["costs"], policy["threshold"], policy["cuts"]
     scored = clean.copy()
     probs = np.array([p["churn_probability"] for p in predictions])
     scored["probabilidade_churn"] = probs
-    scored["risco"] = [p["risk_level"] for p in predictions]
-    scored["contatar"] = ["Sim" if p["churn_prediction"] else "Não" for p in predictions]
+    scored["risco"] = [risk_level(float(p), cuts) for p in probs]
+    scored["contatar"] = np.where(probs >= threshold, "Sim", "Não")
     scored["valor_esperado_contato"] = [
         round(
             expected_contact_value(p, costs["ltv"], costs["offer_cost"], costs["success_rate"]), 2
@@ -149,7 +163,33 @@ def _score(
     return scored
 
 
-def _summary(scored: pd.DataFrame) -> None:
+def _assumptions(policy: dict) -> None:
+    """Quais hipóteses de custo estão valendo — e onde mudá-las."""
+    from src.ui.nav import PAGES
+
+    costs = policy["costs"]
+    # Corte em 100%: a oferta custa mais do que o retorno esperado de qualquer
+    # cliente (custo ≥ sucesso × valor do cliente) — ninguém vale o contato.
+    decision = (
+        "nenhum contato compensa: a oferta custa mais do que o retorno esperado"
+        if policy["threshold"] >= 1.0
+        else f"contatar a partir de <b>{fmt_pct(policy['threshold'], 0)}</b> de risco"
+    )
+    text = (
+        f"valor do cliente de <b>{fmt_brl(costs['ltv'])}</b>, oferta de "
+        f"<b>{fmt_brl(costs['offer_cost'])}</b> e <b>{fmt_pct(costs['success_rate'], 0)}</b> de "
+        f"sucesso → {decision}."
+    )
+    label = (
+        "Hipóteses ajustadas na página Estratégia"
+        if policy["custom"]
+        else "Hipóteses de referência"
+    )
+    components.note(f"<b>{label}:</b> {text}")
+    st.page_link(PAGES["estrategia"], label="Ajustar as hipóteses", icon=":material/tune:")
+
+
+def _summary(scored: pd.DataFrame, policy: dict) -> None:
     probs = scored["probabilidade_churn"].to_numpy()
     contact = scored["contatar"] == "Sim"
     campaign = scored.loc[contact, "valor_esperado_contato"].sum()
@@ -174,15 +214,14 @@ def _summary(scored: pd.DataFrame) -> None:
             {
                 "label": "Valor esperado da campanha",
                 "value": fmt_brl(float(campaign)),
-                "note": "contatando só quem está acima do corte, com as hipóteses de referência "
-                "de custo (ajustáveis na página Estratégia)",
+                "note": f"contatando só quem está acima do corte de "
+                f"{fmt_pct(policy['threshold'], 0)}",
             },
         ]
     )
 
 
-def _distribution(scored: pd.DataFrame) -> None:
-    ev = evaluation()
+def _distribution(scored: pd.DataFrame, policy: dict) -> None:
     counts = scored["risco"].value_counts()
     components.section("Distribuição", "Como o risco se espalha na carteira")
     bar = charts.stacked_bar(
@@ -194,9 +233,9 @@ def _distribution(scored: pd.DataFrame) -> None:
     )
     scale = charts.risk_scale(
         scored["probabilidade_churn"].to_numpy(),
-        ev.get("risk_level_cuts", {"baixo_max": 0.5, "medio_max": 0.5}),
-        threshold=ev.get("optimal_threshold"),
-        threshold_label=f"corte de contato ({fmt_pct(ev.get('optimal_threshold', 0.5), 0)})",
+        policy["cuts"],
+        threshold=policy["threshold"],
+        threshold_label=f"corte de contato ({fmt_pct(policy['threshold'], 0)})",
         population="clientes da carteira",
     )
     components.card(bar + '<div style="height:10px"></div>' + scale)
@@ -392,16 +431,15 @@ def render() -> None:
         components.note("A validação da API recusou este lote.", "warn")
         return
 
-    costs = evaluation().get(
-        "cost_assumptions", {"ltv": 1000.0, "offer_cost": 100.0, "success_rate": 0.3}
-    )
-    scored = _score(clean, records, predictions, costs)
+    policy = campaign_policy()
+    scored = _score(clean, records, predictions, policy)
     ui_html(
         f'<p class="cr-sub" style="margin:4px 0 12px 0">{fmt_int(len(records))} clientes · '
         f"{esc(components.source_label(source, ms))}</p>"
     )
-    _summary(scored)
-    _distribution(scored)
+    _assumptions(policy)
+    _summary(scored, policy)
+    _distribution(scored, policy)
     _truth(scored)
     _queue(scored, name)
     _drift(records)

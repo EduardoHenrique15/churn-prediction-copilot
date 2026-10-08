@@ -112,6 +112,54 @@ class TestCarteira:
         assert "Faltam colunas obrigatórias" in html(at)
 
 
+class TestHipotesesCompartilhadas:
+    """As hipóteses de custo ajustadas na Estratégia valem na Carteira."""
+
+    @staticmethod
+    def _contatar(at: AppTest) -> int:
+        text = html(at)
+        start = text.index("A contatar")
+        return int(text[start:].split('cr-kpi-value">', 1)[1].split("<", 1)[0].replace(".", ""))
+
+    def test_sem_ajuste_a_carteira_decide_igual_a_api(self):
+        """Com as hipóteses de referência, a fila é exatamente o
+        churn_prediction que a API devolve para cada cliente."""
+        from src.ui.data import example_batch, get_client
+
+        at = page("carteira").run()
+        assert "Hipóteses de referência" in html(at)
+        records = example_batch("tipica").drop(columns=["customerID", "Churn"])
+        api = get_client().predict(records.to_dict("records")).data
+        assert self._contatar(at) == sum(p["churn_prediction"] for p in api)
+
+    def test_oferta_mais_cara_encolhe_a_fila_de_contato(self):
+        reference = self._contatar(page("carteira").run())
+        at = page("carteira")
+        at.session_state["s_offer"] = 300
+        at.run()
+        assert not at.exception
+        assert "Hipóteses ajustadas na página Estratégia" in html(at)
+        assert self._contatar(at) < reference
+
+    def test_oferta_mais_cara_que_o_retorno_explica_que_ninguem_compensa(self):
+        """R$ 300 de oferta × 30% × R$ 1.000: o retorno máximo (R$ 300) não
+        cobre o custo — o corte vai a 100% e a nota diz isso com palavras."""
+        at = page("carteira")
+        at.session_state["s_offer"] = 300
+        at.run()
+        assert self._contatar(at) == 0
+        assert "nenhum contato compensa" in html(at)
+
+    def test_estrategia_guarda_o_ajuste_e_permite_voltar_a_referencia(self):
+        at = page("estrategia").run()
+        assert not [b for b in at.button if "referência" in b.label]
+        at.slider(key="s_offer").set_value(300).run()
+        assert at.session_state["s_offer"] == 300
+        [reset] = [b for b in at.button if "referência" in b.label]
+        reset.click().run()
+        assert at.session_state["s_offer"] == 100
+
+
 def test_estrategia_mostra_corte_recomendado():
     text = html(page("estrategia").run())
     assert "Corte recomendado" in text
