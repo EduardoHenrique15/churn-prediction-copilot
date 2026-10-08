@@ -90,7 +90,7 @@ RADAR = (
         f'<i class="cr-blip cr-blip--{kind}" style="left:{x}%;top:{y}%"></i>'
         for kind, x, y in _RADAR_BLIPS
     )
-    + '<span class="cr-radar-tag" style="left:68%;top:30%">▲ contatar</span>'
+    + '<span class="cr-radar-tag" style="left:68%;top:30%">▲ risco alto</span>'
     "</div>"
 )
 
