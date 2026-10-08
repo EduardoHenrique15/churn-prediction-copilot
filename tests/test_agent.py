@@ -323,3 +323,49 @@ class TestAuxiliares:
         assert saved["modelo"] and saved["gravado_em"]
         assert set(saved["respostas"]) == set(DEMO_PROMPTS)
         assert saved["respostas"]["fatores"]["ferramentas"][0]["sources"] == ["a.md"]
+
+    def test_record_demo_salva_a_cada_resposta_e_retoma_de_onde_parou(self, tmp_path):
+        """Com a cota acabando na 2ª pergunta, a 1ª (já paga) fica salva; a
+        próxima execução grava só as que faltam, sem gastar cota de novo."""
+        from src.record_demo import record
+
+        path = tmp_path / "demo.json"
+        calls = []
+
+        def runner(prompt, fail_after=None):
+            calls.append(prompt)
+            if fail_after is not None and len(calls) > fail_after:
+                raise RuntimeError("429 RESOURCE_EXHAUSTED")
+            return TurnResult(answer="ok", conversation=[], stats={"model_calls": 1})
+
+        with pytest.raises(RuntimeError):
+            record(path=path, runner=lambda p: runner(p, fail_after=1))
+        first = json.loads(path.read_text(encoding="utf-8"))
+        assert list(first["respostas"]) == ["prever"]
+
+        calls.clear()
+        payload = record(path=path, runner=runner)
+        assert len(calls) == len(DEMO_PROMPTS) - 1
+        assert set(payload["respostas"]) == set(DEMO_PROMPTS)
+
+        calls.clear()
+        record(path=path, runner=runner)
+        assert calls == []
+        record(path=path, runner=runner, redo=True)
+        assert len(calls) == len(DEMO_PROMPTS)
+
+    def test_record_demo_nao_mistura_respostas_de_outro_modelo(self, tmp_path):
+        from src.record_demo import record
+
+        path = tmp_path / "demo.json"
+        old = {"modelo": "modelo-antigo", "respostas": {"prever": {"resposta": "velha"}}}
+        path.write_text(json.dumps(old), encoding="utf-8")
+        calls = []
+
+        def runner(prompt):
+            calls.append(prompt)
+            return TurnResult(answer="nova", conversation=[], stats={})
+
+        payload = record(path=path, runner=runner)
+        assert len(calls) == len(DEMO_PROMPTS)
+        assert payload["respostas"]["prever"]["resposta"] == "nova"
