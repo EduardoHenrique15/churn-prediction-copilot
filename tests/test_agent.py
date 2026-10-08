@@ -210,6 +210,11 @@ class TestRunTurn:
         assert "máximo de consultas" in result.answer
         assert result.stats["model_calls"] == MAX_TOOL_ITERATIONS + 1
         assert result.conversation[-1].content == result.answer
+        # A ferramenta pedida na última rodada não roda (o resultado seria
+        # descartado) e o pedido não fica pendurado no histórico.
+        assert result.stats["tool_calls"] == MAX_TOOL_ITERATIONS
+        pending = [m for m in result.conversation if getattr(m, "tool_calls", None)]
+        assert len(pending) == MAX_TOOL_ITERATIONS
 
     def test_ferramenta_desconhecida_vira_mensagem_de_erro_nao_excecao(self, events):
         llm = FakeLLM([tool_round("ferramenta_inventada", {}), text_round("Desculpe.")])

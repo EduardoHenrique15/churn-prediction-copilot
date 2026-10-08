@@ -76,3 +76,30 @@ def test_field_contributions_soma_as_dummies_de_cada_campo():
     assert rows[1]["contribution"] == pytest.approx(0.5)
     assert rows[1]["value"] == "Mensal"
     assert rows[0]["value"] == "5 meses"
+
+
+class TestModelNames:
+    def test_nome_no_meio_da_frase_preserva_nomes_proprios(self):
+        from src.labels import model_name
+
+        assert model_name("logistic_regression") == "Regressão logística"
+        assert model_name("logistic_regression", in_sentence=True) == "regressão logística"
+        assert model_name("random_forest", in_sentence=True) == "Random Forest"
+        assert model_name("desconhecido") == "desconhecido"
+
+    def test_artigo_concorda_com_o_modelo(self):
+        from src.labels import model_with_article
+
+        assert model_with_article("logistic_regression") == "a regressão logística"
+        assert (
+            model_with_article("hist_gradient_boosting", capitalize=True) == "O Gradient Boosting"
+        )
+        assert (
+            model_with_article("logistic_regression", indefinite=True) == "uma regressão logística"
+        )
+
+    def test_todo_candidato_do_treino_tem_nome(self):
+        from src.labels import MODEL_NAMES
+        from src.train import build_candidate_models
+
+        assert set(build_candidate_models()) == set(MODEL_NAMES)

@@ -59,6 +59,7 @@ from src.business import (
     theoretical_threshold,
 )
 from src.knowledge import write_model_doc
+from src.labels import model_name
 from src.utils import (
     CATEGORICAL_COLS,
     CATEGORY_OPTIONS,
@@ -100,13 +101,6 @@ COMPLEXITY_ORDER = ["logistic_regression", "random_forest", "hist_gradient_boost
 # direta. Mesma lógica da regra de 1 erro-padrão: dentro do ruído, fica o
 # mais simples. Ver docs/decisoes/003-variaveis-de-cobranca.md.
 EXCLUDED_FEATURES = ("MonthlyCharges", "TotalCharges")
-
-MODEL_DISPLAY_NAMES = {
-    "dummy_baseline": "Baseline (taxa média)",
-    "logistic_regression": "Regressão logística",
-    "random_forest": "Random Forest",
-    "hist_gradient_boosting": "Gradient Boosting",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -683,7 +677,7 @@ def main() -> None:
         "schema_version": 2,
         **metadata,
         "model_selected": chosen,
-        "model_display_name": MODEL_DISPLAY_NAMES[chosen],
+        "model_display_name": model_name(chosen),
         "selection": selection,
         "n_samples": int(len(raw)),
         "n_train": int(len(X_train)),

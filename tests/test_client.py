@@ -142,3 +142,68 @@ def test_check_usa_o_health_e_guarda_a_latencia(monkeypatch):
     status = client.status()
     assert status["health"]["api_version"] == "2.0.0"
     assert status["latency_ms"] is not None
+
+
+@pytest.mark.parametrize("status", [429, 500])
+def test_api_acordada_que_recusa_o_pedido_nao_vira_api_dormindo(monkeypatch, status):
+    """429 (limite por minuto) e 500 vêm da API no ar: o plano B resolve o
+    pedido, mas o chip não pode passar a dizer "API acordando" nem disparar
+    a chamada que acorda o serviço."""
+    woke = []
+    monkeypatch.setattr(
+        client_module.requests, "post", lambda *a, **k: FakeResponse(status, {"detail": "x"})
+    )
+    monkeypatch.setattr(client_module.requests, "get", lambda *a, **k: woke.append(a) or None)
+    client = ChurnClient("http://api")
+    client._mark_up(10.0)
+
+    answer = client.predict([make_customer()])
+    assert answer.source == "local"
+    assert client.state == STATE_ONLINE
+    assert woke == []
+    # Na próxima previsão a API é tentada de novo, sem esperar o retry_after.
+    assert client._remote_available()
+
+
+@pytest.mark.parametrize("status", [502, 503, 504])
+def test_erro_do_proxy_do_render_conta_como_api_fora(monkeypatch, status):
+    monkeypatch.setattr(client_module.requests, "post", lambda *a, **k: FakeResponse(status))
+    monkeypatch.setattr(
+        client_module.requests,
+        "get",
+        lambda *a, **k: (_ for _ in ()).throw(requests.ConnectionError("dormindo")),
+    )
+    client = ChurnClient("http://api", retry_after=60)
+
+    assert client.predict([make_customer()]).source == "local"
+    deadline = time.time() + 2
+    while client.state == "acordando" and time.time() < deadline:
+        time.sleep(0.01)
+    assert client.state == "offline"
+
+
+def test_carregar_o_modelo_local_nao_trava_o_status(monkeypatch):
+    """O status é lido a cada página (chip do topo); ele não pode esperar o
+    modelo local terminar de carregar."""
+    import threading
+
+    started, release = threading.Event(), threading.Event()
+
+    class SlowPredictor:
+        def __init__(self):
+            started.set()
+            release.wait(5)
+
+    monkeypatch.setattr("src.predictor.ChurnPredictor", SlowPredictor)
+    client = ChurnClient(None)
+    loader = threading.Thread(target=client.local)
+    loader.start()
+    assert started.wait(2)
+
+    begin = time.perf_counter()
+    client.status()
+    assert time.perf_counter() - begin < 0.5
+
+    release.set()
+    loader.join(2)
+    assert isinstance(client.local(), SlowPredictor)

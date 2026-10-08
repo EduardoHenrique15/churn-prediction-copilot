@@ -103,6 +103,10 @@ NOT_CONFIGURED_MESSAGE = (
 AUTH_MESSAGE = "A chave da API do Gemini foi recusada. Verifique a configuração do assistente."
 NETWORK_MESSAGE = "Não consegui falar com o serviço de IA agora. Tente de novo em instantes."
 GENERIC_MESSAGE = "Não consegui responder agora. Tente de novo em instantes."
+TOOL_LIMIT_MESSAGE = (
+    "Não consegui concluir a análise: o número máximo de consultas às "
+    "ferramentas foi atingido. Tente reformular a pergunta."
+)
 
 
 def is_quota_error(exc: BaseException) -> bool:
@@ -220,7 +224,7 @@ def run_turn(
     stats = {"model_calls": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0}
     started = time.perf_counter()
 
-    for _ in range(MAX_TOOL_ITERATIONS + 1):
+    for round_number in range(MAX_TOOL_ITERATIONS + 1):
         aggregated = None
         for chunk in llm.stream([SystemMessage(content=SYSTEM_PROMPT), *conversation]):
             aggregated = chunk if aggregated is None else aggregated + chunk
@@ -239,11 +243,22 @@ def run_turn(
         stats["output_tokens"] += int(usage.get("output_tokens", 0) or 0)
 
         message = message_chunk_to_message(aggregated)
-        conversation.append(message)
         if not getattr(message, "tool_calls", None):
+            conversation.append(message)
             answer = _extract_text(message.content) or GENERIC_MESSAGE
             break
+        if round_number == MAX_TOOL_ITERATIONS:
+            # Última rodada e o modelo ainda pede ferramenta: executá-la seria
+            # gastar uma chamada (à API ou aos embeddings) cujo resultado nunca
+            # chega a ser lido. O pedido também fica fora do histórico — uma
+            # chamada de ferramenta sem resposta faria o Gemini recusar a
+            # próxima pergunta da conversa.
+            emit({"type": "reset"})
+            answer = TOOL_LIMIT_MESSAGE
+            conversation.append(AIMessage(content=answer))
+            break
 
+        conversation.append(message)
         emit({"type": "reset"})
         for tool_call in message.tool_calls:
             tool_message, record = _run_tool_call(tool_call)
@@ -251,12 +266,6 @@ def run_turn(
             trace.append(record)
             stats["tool_calls"] += 1
             emit({"type": "tool", "record": record})
-    else:
-        answer = (
-            "Não consegui concluir a análise: o número máximo de consultas às "
-            "ferramentas foi atingido. Tente reformular a pergunta."
-        )
-        conversation.append(AIMessage(content=answer))
 
     stats["latency_ms"] = round((time.perf_counter() - started) * 1000)
     return TurnResult(answer=answer, conversation=conversation, trace=trace, stats=stats)

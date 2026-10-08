@@ -12,6 +12,15 @@ from langchain_core.tools import tool
 
 from src.client import ChurnClient, ExplanationUnavailableError, InvalidCustomerError
 from src.labels import field_contributions
+from src.utils import (
+    ContractType,
+    Gender,
+    InternetServiceType,
+    PaymentMethodType,
+    YesNo,
+    YesNoInternet,
+    YesNoPhone,
+)
 
 load_dotenv()
 
@@ -62,23 +71,27 @@ def _top_factors(explanation: dict, record: dict, limit: int = 5) -> list[dict]:
 
 @tool(response_format="content_and_artifact")
 def predict_churn(
-    gender: str,
+    # Os tipos Literal (os mesmos do schema da API, em src/utils.py) viram
+    # listas de valores permitidos no schema que o Gemini recebe: o modelo
+    # escolhe entre "Fiber optic" e "DSL" em vez de adivinhar a grafia — e
+    # erra menos, sem gastar uma rodada (e cota) para corrigir o argumento.
+    gender: Gender,
     SeniorCitizen: int,
-    Partner: str,
-    Dependents: str,
+    Partner: YesNo,
+    Dependents: YesNo,
     tenure: int,
-    PhoneService: str,
-    MultipleLines: str,
-    InternetService: str,
-    OnlineSecurity: str,
-    OnlineBackup: str,
-    DeviceProtection: str,
-    TechSupport: str,
-    StreamingTV: str,
-    StreamingMovies: str,
-    Contract: str,
-    PaperlessBilling: str,
-    PaymentMethod: str,
+    PhoneService: YesNo,
+    MultipleLines: YesNoPhone,
+    InternetService: InternetServiceType,
+    OnlineSecurity: YesNoInternet,
+    OnlineBackup: YesNoInternet,
+    DeviceProtection: YesNoInternet,
+    TechSupport: YesNoInternet,
+    StreamingTV: YesNoInternet,
+    StreamingMovies: YesNoInternet,
+    Contract: ContractType,
+    PaperlessBilling: YesNo,
+    PaymentMethod: PaymentMethodType,
     MonthlyCharges: float,
     TotalCharges: float,
 ) -> tuple[dict, dict]:
@@ -87,8 +100,8 @@ def predict_churn(
     e devolve os fatores que mais pesaram na previsão.
 
     Use quando o usuário descrever um cliente específico e perguntar sobre o
-    risco dele. Os valores precisam estar em inglês, exatamente como no
-    dataset (ex.: "Fiber optic", "Month-to-month", "Electronic check").
+    risco dele. Os valores categóricos estão em inglês, como no dataset, e
+    só aceitam as opções listadas. SeniorCitizen é 1 (idoso) ou 0.
     Regras de consistência: sem internet (InternetService="No") exige
     "No internet service" nos 6 serviços de internet; sem telefone exige
     MultipleLines="No phone service"; TotalCharges deve ficar perto de
@@ -155,6 +168,19 @@ def _ensure_index() -> bool:
 
             build_index()
     return os.path.isfile(CHROMA_INDEX_FILE)
+
+
+def _invalid_arguments(error) -> str:
+    """Valor fora das opções (o schema já as lista, mas o modelo pode errar):
+    volta para ele como texto curto, para corrigir na próxima rodada."""
+    problems = "; ".join(
+        f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}"
+        for e in getattr(error, "errors", lambda: [])()
+    )
+    return f"Valores inválidos para o modelo — {problems or error}"
+
+
+predict_churn.handle_validation_error = _invalid_arguments
 
 
 def _get_retriever():

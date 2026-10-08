@@ -35,6 +35,20 @@ STATE_OFFLINE = "offline"
 STATE_LOCAL_ONLY = "local"
 
 
+# Códigos que vêm da NOSSA API, acordada: ela está no ar, só não atendeu este
+# pedido (429 = limite de requisições por minuto; 500 = erro interno ao prever).
+# O plano B local resolve o pedido, mas marcar a API como fora — e disparar a
+# chamada que "acorda" o serviço — faria o chip mostrar "API acordando" sem a
+# API estar dormindo. Já 502/503/504 vêm do proxy do Render (serviço subindo
+# ou fora) e continuam contando como fora do ar.
+API_AWAKE_ERRORS = frozenset({429, 500})
+
+
+def _api_is_awake(exc: requests.HTTPError) -> bool:
+    response = exc.response
+    return response is not None and response.status_code in API_AWAKE_ERRORS
+
+
 class InvalidCustomerError(ValueError):
     """Cliente recusado pela validação (a API responderia 422)."""
 
@@ -82,6 +96,9 @@ class ChurnClient:
         self.wake_timeout = wake_timeout
         self.retry_after = retry_after
         self._lock = threading.Lock()
+        # Lock próprio para carregar o modelo local: carregar leva algum tempo
+        # e não pode travar status()/state, que a interface lê a toda página.
+        self._local_lock = threading.Lock()
         self._state = STATE_UNKNOWN if self.api_url else STATE_LOCAL_ONLY
         self._waking = False
         self._down_since = 0.0
@@ -182,12 +199,13 @@ class ChurnClient:
     # ------------------------------------------------------------------
     def local(self):
         """Preditor local (carregado uma vez, sob demanda)."""
-        with self._lock:
-            if self._local is None:
-                from src.predictor import ChurnPredictor
+        if self._local is None:
+            with self._local_lock:
+                if self._local is None:
+                    from src.predictor import ChurnPredictor
 
-                self._local = ChurnPredictor()
-            return self._local
+                    self._local = ChurnPredictor()
+        return self._local
 
     def _post(self, path: str, payload: dict) -> tuple[dict, float]:
         started = time.perf_counter()
@@ -214,6 +232,9 @@ class ChurnClient:
                 return Answer(predictions, "api", total_ms)
             except InvalidCustomerError:
                 raise
+            except requests.HTTPError as exc:
+                if not _api_is_awake(exc):
+                    self._mark_down()
             except (requests.RequestException, KeyError, ValueError):
                 self._mark_down()
 
@@ -235,7 +256,8 @@ class ChurnClient:
             except requests.HTTPError as exc:
                 # 503 = explicabilidade desligada na API: o cálculo local
                 # resolve se o modelo for linear (não precisa de SHAP).
-                if exc.response is None or exc.response.status_code != 503:
+                explain_off = exc.response is not None and exc.response.status_code == 503
+                if not (explain_off or _api_is_awake(exc)):
                     self._mark_down()
             except (requests.RequestException, ValueError):
                 self._mark_down()

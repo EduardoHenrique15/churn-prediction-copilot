@@ -105,3 +105,24 @@ def test_busca_devolve_trechos_e_fontes_sem_duplicar():
         )
     assert message.artifact == {"sources": ["a.md", "b.md"]}
     assert "trecho de b.md" in message.content
+
+
+def test_schema_da_previsao_lista_os_valores_permitidos():
+    """O Gemini recebe as opções de cada campo categórico (enum) e não
+    precisa adivinhar a grafia exata do dataset."""
+    args = predict_churn.args
+    assert args["Contract"]["enum"] == ["Month-to-month", "One year", "Two year"]
+    assert "Fiber optic" in args["InternetService"]["enum"]
+
+
+def test_valor_fora_das_opcoes_volta_como_mensagem_curta_para_o_modelo():
+    message = predict_churn.invoke(
+        {
+            "name": "predict_churn",
+            "args": make_customer(gender="Banana"),
+            "id": "1",
+            "type": "tool_call",
+        }
+    )
+    assert message.content.startswith("Valores inválidos")
+    assert "gender" in message.content

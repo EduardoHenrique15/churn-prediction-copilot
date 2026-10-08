@@ -13,12 +13,20 @@ from src.business import (
     fmt_brl,
     fmt_int,
     fmt_pct,
+    risk_cuts,
     whatif_scenarios,
 )
 from src.client import ExplanationUnavailableError, InvalidCustomerError
 from src.labels import VALUE_LABELS, field_contributions
 from src.ui import charts, components
-from src.ui.data import evaluation, example_batch, get_client, metrics, test_predictions
+from src.ui.data import (
+    evaluation,
+    example_batch,
+    get_client,
+    metrics,
+    reference_costs,
+    test_predictions,
+)
 from src.ui.html import esc, md_text, ui_html
 from src.ui.theme import RISK_STYLE
 from src.utils import (
@@ -331,11 +339,11 @@ def _verdict(payload: dict, result: dict) -> None:
     p = pred["churn_probability"]
     risk = pred["risk_level"]
     style = RISK_STYLE[risk]
-    costs = evaluation().get(
-        "cost_assumptions", {"ltv": 1000.0, "offer_cost": 100.0, "success_rate": 0.3}
-    )
+    # Hipóteses de referência do treino: a recomendação ao lado é a da API,
+    # que usa o corte calculado com elas.
+    costs = reference_costs()
     value = expected_contact_value(p, costs["ltv"], costs["offer_cost"], costs["success_rate"])
-    base_rate = metrics().get("churn_rate", 0.2658)
+    base_rate = metrics().get("churn_rate")
     test = test_predictions()
     percentile = float((test < p).mean()) if len(test) else None
 
@@ -369,7 +377,7 @@ def _verdict(payload: dict, result: dict) -> None:
             "contato. O risco é baixo demais para compensar."
         )
 
-    meta = [f"Média da base: <b>{fmt_pct(base_rate)}</b>"]
+    meta = [f"Média da base: <b>{fmt_pct(base_rate)}</b>"] if base_rate is not None else []
     if percentile is not None:
         meta.append(f"Mais arriscado que <b>{fmt_pct(percentile, 0)}</b> dos clientes")
     meta.append(
@@ -554,7 +562,7 @@ def render() -> None:
                 components.card(
                     charts.risk_scale(
                         test,
-                        evaluation().get("risk_level_cuts", {"baixo_max": 0.5, "medio_max": 0.5}),
+                        evaluation().get("risk_level_cuts") or risk_cuts(0.5),
                         marker=p,
                     )
                 )

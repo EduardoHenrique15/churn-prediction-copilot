@@ -17,23 +17,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from src.business import fmt_brl, fmt_int, fmt_num, fmt_pct
+from src.labels import model_name, model_with_article
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parent.parent / "data" / "knowledge_base"
 MODEL_DOC_PATH = KNOWLEDGE_DIR / "04_sobre_o_modelo.md"
 GUIDE_DOC_PATH = KNOWLEDGE_DIR / "05_como_ler_o_radar.md"
-
-_DISPLAY = {
-    "dummy_baseline": "baseline (taxa média)",
-    "logistic_regression": "regressão logística",
-    "random_forest": "Random Forest",
-    "hist_gradient_boosting": "Gradient Boosting",
-}
-
-_WITH_ARTICLE = {
-    "logistic_regression": "a regressão logística",
-    "random_forest": "o Random Forest",
-    "hist_gradient_boosting": "o Gradient Boosting",
-}
 
 _EXPLANATION = {
     True: (
@@ -55,9 +43,8 @@ def _ci(metrics: dict, key: str, decimals: int = 3) -> str:
 
 def render_model_doc(metrics: dict, evaluation: dict) -> str:
     chosen = metrics["model_selected"]
-    name = _DISPLAY.get(chosen, chosen)
+    name = model_name(chosen, in_sentence=True)
     selection = metrics["selection"]
-    best = _DISPLAY.get(selection["best_mean"], selection["best_mean"])
     cv = metrics["cv_comparison"]
     test = metrics["test_metrics"]
     op = metrics["operational"]
@@ -67,14 +54,26 @@ def render_model_doc(metrics: dict, evaluation: dict) -> str:
     redundancy = metrics.get("redundancy", {})
     excluded = metrics.get("excluded_features", [])
     linear = chosen == "logistic_regression"
+    two_year = evaluation.get("subgroup_metrics", {}).get("contract_two_year")
+    two_year_text = (
+        "\n- Em clientes com contrato de 2 anos o churn é raro "
+        f"({fmt_pct(two_year['churn_rate'])} no conjunto de teste) e o modelo quase nunca "
+        "recomenda contato nesse grupo."
+        if two_year
+        else ""
+    )
 
-    others = [_WITH_ARTICLE.get(k, k) for k in selection["tied"] if k != selection["best_mean"]]
+    others = [model_with_article(k) for k in selection["tied"] if k != selection["best_mean"]]
     if selection["best_mean"] == chosen:
-        selection_text = f"A {name} teve a maior average precision média e foi escolhida."
+        selection_text = (
+            f"{model_with_article(chosen, capitalize=True)} teve a maior average precision "
+            "média e foi escolhida."
+        )
     else:
         listed = ", ".join(others[:-1]) + " e " + others[-1] if len(others) > 1 else others[0]
         selection_text = (
-            f"O {best} teve a maior average precision média "
+            f"{model_with_article(selection['best_mean'], capitalize=True)} teve a maior "
+            "average precision média "
             f"({fmt_num(cv[selection['best_mean']]['cv_ap_mean'], 3)}), mas {listed} "
             "ficaram a menos de 1 erro-padrão dele. É um empate técnico, e nesse caso o "
             f"projeto fica com o modelo mais simples: {name} "
@@ -142,14 +141,13 @@ def render_model_doc(metrics: dict, evaluation: dict) -> str:
         "cancelar do que de ficar.",
         "## Como cada previsão é explicada\n\n" + _EXPLANATION[linear],
         "## Limitações\n\n"
-        "- Os dados são o dataset público IBM Telco Customer Churn (7.043 clientes de uma "
-        "operadora dos EUA): um retrato de um único momento, não uma operação real.\n"
+        "- Os dados são o dataset público IBM Telco Customer Churn "
+        f"({fmt_int(metrics['n_samples'])} clientes de uma operadora dos EUA): um retrato de "
+        "um único momento, não uma operação real.\n"
         "- O modelo aprende associações, não causas. Mudar o contrato de um cliente na "
         "simulação mostra o que o modelo prevê, não o efeito garantido de uma ação.\n"
         "- Os custos da política de retenção são hipóteses de referência, não números de "
-        "uma empresa.\n"
-        "- Em clientes com contrato de 2 anos o churn é raro (cerca de 3%) e o modelo quase "
-        "nunca recomenda contato nesse grupo.",
+        "uma empresa." + two_year_text,
     ]
     return "\n\n".join(sections) + "\n"
 

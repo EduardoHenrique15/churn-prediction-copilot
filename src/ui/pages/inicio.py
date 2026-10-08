@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.business import fmt_brl, fmt_int, fmt_num, fmt_pct
+from src.labels import model_with_article
 from src.ui import components
 from src.ui.data import metrics
 from src.ui.html import esc, ui_html
@@ -170,17 +171,22 @@ def _how() -> None:
         "Cada etapa foi pensada para o número na tela ser confiável — e para o projeto rodar de "
         "graça.",
     )
-    n = fmt_int(m.get("n_samples", 7032))
+    # Números e nomes vêm de models/metrics.json: um retreino que escolha
+    # outro modelo atualiza este texto sozinho.
+    n = m.get("n_samples")
+    clients = f"{fmt_int(n)} clientes reais" if n else "Clientes reais"
+    chosen = m.get("model_selected")
+    winner = f": {model_with_article(chosen)}" if chosen else ""
     steps = [
         (
             "Dados",
-            f"{n} clientes reais de uma operadora (dataset público da IBM). 20% ficam de fora "
+            f"{clients} de uma operadora (dataset público da IBM). 20% ficam de fora "
             "como teste e só são usados na avaliação final.",
         ),
         (
             "Modelo",
             "Quatro candidatos comparados com validação cruzada 5×3. Vence o mais simples dentro "
-            "do empate técnico: uma regressão logística calibrada.",
+            f"do empate técnico{winner}.",
         ),
         (
             "Decisão",
@@ -201,10 +207,30 @@ def _how() -> None:
     ui_html(f'<div class="cr-steps">{cards}</div>')
 
 
+def _selection_text(m: dict) -> str:
+    """Resumo da escolha do modelo a partir de metrics.json (regra de 1 erro-padrão)."""
+    selection = m.get("selection", {})
+    best, chosen = selection.get("best_mean"), selection.get("chosen")
+    if not chosen:
+        return "Entre modelos empatados dentro do ruído da validação cruzada, fica o mais simples."
+    gain = (
+        "explicação exata e uma API mais leve"
+        if chosen == "logistic_regression"
+        else "o mais simples entre os empatados"
+    )
+    if best and best != chosen:
+        return (
+            f"{model_with_article(best, capitalize=True)} teve a maior média, mas a diferença "
+            f"ficou abaixo de 1 erro-padrão. {model_with_article(chosen, capitalize=True)} "
+            f"ganhou: {gain}."
+        )
+    return f"{model_with_article(chosen, capitalize=True)} teve a maior média e é o modelo em produção."
+
+
 def _decisions() -> None:
     m = metrics()
-    redundancy = m.get("redundancy", {})
-    r2 = fmt_num(redundancy.get("monthly_r2_services", 0.999), 3)
+    r2 = m.get("redundancy", {}).get("monthly_r2_services")
+    r2_text = f" (R² = {fmt_num(r2, 3)})" if r2 is not None else ""
     components.section(
         "Decisões de projeto",
         "O que diferencia este modelo",
@@ -216,14 +242,10 @@ def _decisions() -> None:
             "Sem reponderação de classes, que inflava o risco médio da base. Um cliente com 30% de "
             "risco é, de fato, um cliente em que 3 de cada 10 cancelam.",
         ),
-        (
-            "O mais simples dentro do ruído",
-            "O Gradient Boosting teve a maior média, mas a diferença ficou abaixo de 1 erro-padrão. "
-            "A regressão logística ganhou: explicação exata e uma API mais leve.",
-        ),
+        ("O mais simples dentro do ruído", _selection_text(m)),
         (
             "Variáveis que não enganam",
-            f"A mensalidade é determinada pelos serviços contratados (R² = {r2}). Fora do modelo, "
+            f"A mensalidade é determinada pelos serviços contratados{r2_text}. Fora do modelo, "
             "os pesos voltam a fazer sentido de negócio, sem perder qualidade.",
         ),
         (

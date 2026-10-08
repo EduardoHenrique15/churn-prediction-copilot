@@ -9,21 +9,16 @@ from datetime import datetime
 import streamlit as st
 
 from src.business import fmt_int, fmt_num, fmt_pct
-from src.labels import FIELD_LABELS, value_label
+from src.labels import FIELD_LABELS, model_name, model_with_article, value_label
 from src.ui import charts, components
 from src.ui.data import evaluation, metrics
 from src.ui.html import esc, ui_html
 from src.ui.theme import ACCENT, MUTED
 
-MODEL_NAMES = {
-    "dummy_baseline": "Baseline (taxa média)",
-    "logistic_regression": "Regressão logística",
-    "random_forest": "Random Forest",
-    "hist_gradient_boosting": "Gradient Boosting",
-}
 COMPLEXITY = {
     "dummy_baseline": "não aprende nada — prevê a taxa média para todos",
-    "logistic_regression": "28 pesos, explicação exata",
+    # o número de pesos vem do treino (n_features) — ver _complexity
+    "logistic_regression": "{n} pesos, explicação exata",
     "random_forest": "300 árvores",
     "hist_gradient_boosting": "árvores em sequência",
 }
@@ -47,7 +42,7 @@ def _date(iso: str | None) -> str:
 
 def _meta(m: dict) -> None:
     chips = [
-        MODEL_NAMES.get(m.get("model_selected"), m.get("model_selected", "—")),
+        model_name(m.get("model_selected", "—")),
         f"treinado em {_date(m.get('trained_at'))}",
         f"versão {m.get('model_version', '—')}",
         f"{m.get('n_features', '—')} variáveis",
@@ -106,11 +101,15 @@ def _test_results(m: dict) -> None:
     )
 
 
+def _complexity(key: str, m: dict) -> str:
+    return COMPLEXITY.get(key, "").format(n=m.get("n_features", "—"))
+
+
 def _selection(m: dict) -> None:
     cv, sel = m["cv_comparison"], m["selection"]
     components.section(
         "Escolha do modelo",
-        "Por que uma regressão logística",
+        f"Por que {model_with_article(sel['chosen'], indefinite=True)}",
         "Quatro candidatos, comparados com validação cruzada (5 partes × 3 repetições) só nos "
         "dados de treino. Regra de decisão: entre os candidatos a até 1 erro-padrão do melhor, "
         "fica o mais simples — diferença menor que o ruído não justifica um modelo mais "
@@ -125,34 +124,35 @@ def _selection(m: dict) -> None:
     hi = max(mu + se for mu, se in zip(means, ses, strict=True)) + 0.004
     rows = [
         {
-            "label": MODEL_NAMES[k],
+            "label": model_name(k),
             "mean": cv[k]["cv_ap_mean"],
             "se": cv[k]["cv_ap_se"],
             "chosen": k == sel["chosen"],
-            "sub": COMPLEXITY[k],
+            "sub": _complexity(k, m),
         }
         for k in candidates
     ]
     chart = charts.dot_ranges(rows, (lo, hi), sel.get("floor"), lambda v: fmt_num(v, 3))
     components.card(chart)
-    best = MODEL_NAMES.get(sel["best_mean"], sel["best_mean"])
-    chosen = MODEL_NAMES.get(sel["chosen"], sel["chosen"])
+    best = model_name(sel["best_mean"])
+    chosen = model_name(sel["chosen"])
     gap = cv[sel["best_mean"]]["cv_ap_mean"] - cv[sel["chosen"]]["cv_ap_mean"]
     components.note(
-        f"<b>{esc(best)}</b> teve a maior média, mas a vantagem sobre a <b>{esc(chosen.lower())}</b> "
+        f"<b>{esc(best)}</b> teve a maior média, mas a vantagem sobre "
+        f"<b>{esc(model_with_article(sel['chosen']))}</b> "
         f"foi de {fmt_num(gap, 4)} — menor que 1 erro-padrão ({fmt_num(cv[sel['best_mean']]['cv_ap_se'], 4)}, "
         "já corrigido para folds que se sobrepõem, Nadeau & Bengio, 2003). A linha amarela marca "
         "o limite do empate. O baseline (taxa média) fica em "
         f"{fmt_num(cv['dummy_baseline']['cv_ap_mean'], 3)}, bem à esquerda do gráfico."
         if sel["best_mean"] != sel["chosen"]
-        else f"<b>{esc(chosen)}</b> teve a maior média e foi escolhida."
+        else f"<b>{esc(chosen)}</b> teve a maior média e é o modelo em produção."
     )
     body = []
     for key in ("dummy_baseline", *candidates):
         r = cv[key]
         hl = ' class="cr-hl"' if key == sel["chosen"] else ""
         body.append(
-            f"<tr{hl}><td>{esc(MODEL_NAMES[key])}</td>"
+            f"<tr{hl}><td>{esc(model_name(key))}</td>"
             f"<td>{fmt_num(r['cv_ap_mean'], 3)} ± {fmt_num(r['cv_ap_se'], 3)}</td>"
             f"<td>{fmt_num(r['oof_roc_auc'], 3)}</td><td>{fmt_num(r['oof_brier'], 3)}</td>"
             f"<td>{fmt_num(r['oof_ece'] * 100, 1)} pp</td></tr>"
@@ -387,7 +387,7 @@ def _use(m: dict) -> None:
     )
     components.note(
         "<b>Limitações:</b> dataset público IBM Telco Customer Churn — "
-        f"{fmt_int(m.get('n_samples', 7032))} clientes de uma operadora dos EUA, um retrato de um "
+        f"{fmt_int(m['n_samples'])} clientes de uma operadora dos EUA, um retrato de um "
         "único momento; os custos da campanha são hipóteses; e o perfil de uma carteira nova "
         "pode ser diferente do treino (a página Carteira mede isso com o PSI)."
     )

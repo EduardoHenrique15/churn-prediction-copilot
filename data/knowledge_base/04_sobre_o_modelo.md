@@ -33,7 +33,7 @@ Cada previsão vem com a contribuição exata de cada característica do cliente
 
 ## Limitações
 
-- Os dados são o dataset público IBM Telco Customer Churn (7.043 clientes de uma operadora dos EUA): um retrato de um único momento, não uma operação real.
+- Os dados são o dataset público IBM Telco Customer Churn (7.032 clientes de uma operadora dos EUA): um retrato de um único momento, não uma operação real.
 - O modelo aprende associações, não causas. Mudar o contrato de um cliente na simulação mostra o que o modelo prevê, não o efeito garantido de uma ação.
 - Os custos da política de retenção são hipóteses de referência, não números de uma empresa.
-- Em clientes com contrato de 2 anos o churn é raro (cerca de 3%) e o modelo quase nunca recomenda contato nesse grupo.
+- Em clientes com contrato de 2 anos o churn é raro (2,4% no conjunto de teste) e o modelo quase nunca recomenda contato nesse grupo.

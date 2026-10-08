@@ -42,6 +42,43 @@ VALUE_LABELS: dict[str, dict[str, str]] = {
     ),
 }
 
+# Nomes dos candidatos do treino (src/train.py), num lugar só: o treino grava
+# o nome em metrics.json, a página Modelo mostra e o documento do RAG cita.
+MODEL_NAMES: dict[str, str] = {
+    "dummy_baseline": "Baseline (taxa média)",
+    "logistic_regression": "Regressão logística",
+    "random_forest": "Random Forest",
+    "hist_gradient_boosting": "Gradient Boosting",
+}
+# Nomes próprios mantêm a maiúscula no meio da frase; os demais não.
+_PROPER_NAMES = {"random_forest", "hist_gradient_boosting"}
+_ARTICLES = {
+    "dummy_baseline": "o",
+    "logistic_regression": "a",
+    "random_forest": "o",
+    "hist_gradient_boosting": "o",
+}
+
+
+def model_name(key: str, *, in_sentence: bool = False) -> str:
+    """'logistic_regression' -> 'Regressão logística' (ou 'regressão
+    logística' no meio de uma frase). Chave desconhecida volta como veio."""
+    name = MODEL_NAMES.get(key, key)
+    if in_sentence and key not in _PROPER_NAMES:
+        return name[:1].lower() + name[1:]
+    return name
+
+
+def model_with_article(key: str, *, capitalize: bool = False, indefinite: bool = False) -> str:
+    """'a regressão logística', 'o Random Forest' (ou 'A ...', 'O ...');
+    com `indefinite`, 'uma regressão logística', 'um Random Forest'."""
+    article = _ARTICLES.get(key, "o")
+    if indefinite:
+        article = {"a": "uma", "o": "um"}[article]
+    text = f"{article} {model_name(key, in_sentence=True)}"
+    return text[:1].upper() + text[1:] if capitalize else text
+
+
 FIELD_LABELS: dict[str, str] = {
     "gender": "Gênero",
     "SeniorCitizen": "Idoso",
