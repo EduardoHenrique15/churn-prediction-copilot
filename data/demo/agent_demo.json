@@ -1,0 +1,101 @@
+{
+  "gravado_em": "2026-10-08T03:14:43+00:00",
+  "modelo": "gemini-3.6-flash",
+  "respostas": {
+    "fatores": {
+      "titulo": "Entender o churn",
+      "pergunta": "Quais são os principais fatores de risco de churn em telecom?",
+      "resposta": "Com base nos dados e na análise do setor de telecomunicações, os **principais fatores de risco de churn** (cancelamento) estão divididos entre o tipo de contrato, os serviços contratados, a forma de pagamento e o tempo de relacionamento com a empresa:\n\n---\n\n### 1. **Tipo de Contrato (O fator mais decisivo)**\n* **Contrato Mês a Mês (Month-to-month):** Apresenta uma taxa de churn de **42,7%**, pois não há barreira de saída ou multa por fidelidade.\n* **Contratos Longos:** O risco cai drasticamente para **11,3%** nos contratos de 1 ano e para **2,8%** nos de 2 anos.\n\n---\n\n### 2. **Serviços e Combinações de Alto Risco**\n* **Internet Fibra Óptica:** Apresenta maior rotatividade se comparada ao DSL, especialmente quando associada à falta de serviços de suporte/segurança ou a preços mais elevados.\n* **Combinação Crítica:** Clientes com **contrato mensal + internet fibra óptica + pagamento por cheque eletrônico** atingem uma taxa de cancelamento de **60,4%**.\n\n---\n\n### 3. **Forma de Pagamento e Fatura**\n* **Pagamento por Cheque Eletrônico (Electronic check):** Histórico de maior atrito e volatilidade.\n* **Fatura Digital (Paperless billing):** Clientes com fatura digital têm **33,6%** de churn, contra **16,3%** dos que recebem fatura em papel.\n\n---\n\n### 4. **Tempo de Casa (Tenure) e Perfil do Cliente**\n* **Clientes Novos:** O primeiro ano de contrato é o período mais vulnerável; clientes novos com contrato mensal têm taxa de cancelamento de **51,4%**.\n* **Perfil Demográfico:**\n  * **Idosos (Senior Citizens):** Taxa de churn de **41,7%** (contra 23,6% nos demais).\n  * **Sem dependentes/cônjuge:** Taxas em torno de **31% a 33%** (clientes com dependentes ou parceiros tendem a ter maior retenção).\n* **Gênero:** Não apresenta diferença relevante (taxas praticamente idênticas entre homens e mulheres).\n\n---\n\n> **Observação:** Essas porcentagens refletem correlações encontradas na base de dados. Elas indicam quais perfis cancelam mais frequentemente, permitindo priorizar ações de retenção preventivas.",
+      "ferramentas": [
+        {
+          "tool": "search_churn_knowledge",
+          "args": {
+            "query": "fatores de risco de churn"
+          },
+          "resultado": "[Principais fatores de risco de churn]\nNúmeros calculados no dataset do projeto (7.043 clientes; taxa média de churn de 26,5%). São associações observadas nos dados: mostram quem cancela mais, não provam a causa.\n\n---\n\n[Principais fatores de risco de churn — Perfil do cliente]\nIdosos: 41,7% de churn, contra 23,6% dos demais. Sem cônjuge: 33,0%, contra 19,7%. Sem dependentes: 31,3%, contra 15,5%. Fatura digital: 33,6%, contra 16,3% da fatura em papel. Gênero praticamente não faz diferença (26,9% entre mulheres e 26,2% entre homens).\n\n---\n\n[Principais fatores de risco de churn — Combinação de alto risco]\nContrato mensal, fibra óptica e pagamento por cheque eletrônico juntos: 60,4% de churn em 1.307 clientes. Contrato mensal no primeiro ano de casa: 51,4%.\n\n---\n\n[Principais fatores de risco de churn — Tipo de contrato]\nContrato mensal: 42,7% de churn. Contrato anual: 11,3%. Contrato de dois anos: 2,8%. No contrato mensal não há barreira de saída; nos contratos longos o cliente já assumiu um compromisso.",
+          "sources": [
+            "02_fatores_de_risco.md"
+          ],
+          "fonte": null,
+          "ms": 4753
+        }
+      ],
+      "estatisticas": {
+        "model_calls": 2,
+        "tool_calls": 1,
+        "input_tokens": 2000,
+        "output_tokens": 995,
+        "latency_ms": 19771
+      }
+    },
+    "acoes": {
+      "titulo": "Pedir recomendações",
+      "pergunta": "Que ações de retenção funcionam melhor para clientes de contrato mensal?",
+      "resposta": "Para clientes com **contrato mensal** (*Month-to-month*), que apresentam a maior taxa de cancelamento no projeto (cerca de **42,7%** de churn contra 11,3% no contrato anual e 2,8% no contrato de dois anos), as ações de retenção mais recomendadas são:\n\n---\n\n### 1. **Incentivo à Migração para Contratos de Longo Prazo**\n* **Oferta de transição:** Oferecer benefícios claros para o cliente migrar para um contrato anual ou de dois anos, tais como:\n  * Desconto na mensalidade.\n  * Upgrade temporário ou definitivo na velocidade da internet.\n  * Inclusão gratuita de serviços de valor agregado (ex.: suporte técnico, backup online ou proteção de dispositivos).\n* **Por que funciona:** Contratos mais longos eliminam a facilidade de saída sem custos e aumentam o engajamento com a marca.\n\n---\n\n### 2. **Onboarding Ativo (Especialmente no Primeiro Ano)**\nMais da metade dos cancelamentos ocorrem no **primeiro ano** de relacionamento.\n* **Acompanhamento próximo:**\n  * Contato de boas-vindas nas primeiras semanas.\n  * Suporte proativo para garantir a correta instalação e uso dos serviços.\n  * Pesquisas rápidas de satisfação no 2º e no 6º mês de contrato.\n\n---\n\n### 3. **Troca do Meio de Pagamento**\n* Incentivar a mudança de pagamento via boleto/cheque eletrônico (*Electronic check*) para **débito automático ou cartão de crédito**, reduzindo fricções financeiras e esquecimentos de pagamento que costumam anteceder o churn.\n\n---\n\n⚠️ **Dica de aplicação:** Como os dados indicam **associações de risco** (e não necessariamente relação direta de causa e efeito), vale a pena **testar as ofertas em um grupo piloto** (teste A/B) para comparar a taxa de retenção antes de aplicar a ação para toda a base.",
+      "ferramentas": [
+        {
+          "tool": "search_churn_knowledge",
+          "args": {
+            "query": "ações de retenção contrato mensal"
+          },
+          "resultado": "[Recomendações de retenção — Clientes com contrato mensal]\nOferecer migração para contrato anual ou de dois anos com um benefício claro (desconto, upgrade de velocidade, serviço adicional). Contratos longos têm churn muito menor, mas parte da diferença vem do perfil de quem já escolhe contrato longo — por isso vale testar a oferta antes de escalar.\n\n---\n\n[Recomendações de retenção]\nAções sugeridas a partir dos fatores de risco do projeto. O modelo mostra associações; o efeito real de cada ação só se confirma com teste controlado (por exemplo, oferecer a ação a um grupo e comparar com um grupo que não recebeu).\n\n---\n\n[Recomendações de retenção — Clientes no primeiro ano]\nÉ onde está mais da metade dos cancelamentos. Um onboarding ativo nos primeiros meses (contato de boas-vindas, ajuda na instalação, checagem de satisfação no 2º e no 6º mês) ataca o período de maior risco.\n\n---\n\n[Principais fatores de risco de churn — Tipo de contrato]\nContrato mensal: 42,7% de churn. Contrato anual: 11,3%. Contrato de dois anos: 2,8%. No contrato mensal não há barreira de saída; nos contratos longos o cliente já assumiu um compromisso.",
+          "sources": [
+            "03_recomendacoes_retencao.md",
+            "02_fatores_de_risco.md"
+          ],
+          "fonte": null,
+          "ms": 610
+        }
+      ],
+      "estatisticas": {
+        "model_calls": 2,
+        "tool_calls": 1,
+        "input_tokens": 2006,
+        "output_tokens": 885,
+        "latency_ms": 9460
+      }
+    },
+    "prever": {
+      "titulo": "Prever um cliente",
+      "pergunta": "Cliente mulher, não idosa, sem cônjuge, sem dependentes, 3 meses de casa, com telefone, sem múltiplas linhas, internet fibra óptica, sem segurança online, sem backup online, sem proteção de aparelho, sem suporte técnico, com streaming de TV e de filmes, contrato mensal, fatura digital, pagamento por cheque eletrônico, mensalidade de 95 reais, total gasto de 285 reais. Qual o risco de cancelamento?",
+      "resposta": "A análise do perfil dessa cliente indica um **alto risco de cancelamento (churn)**.\n\n### Resumo da Análise:\n* **Probabilidade de Churn:** **78,9%**\n* **Faixa de Risco:** **Alto**\n* **Recomendação de Contato:** **Sim, vale a pena contatar** (o modelo indica valor esperado positivo para ações de retenção neste perfil).\n\n---\n\n### Principais Fatores que Aumentam o Risco:\n1. **Pouco tempo de casa (3 meses):** Clientes em início de contrato costumam ser mais suscetíveis ao cancelamento.\n2. **Tipo de contrato (Mensal / Month-to-month):** Contratos mensais sem fidelidade facilitam a saída a qualquer momento.\n3. **Forma de pagamento (Cheque Eletrônico / Electronic check):** É um método de pagamento associado historicamente a maiores taxas de cancelamento.\n4. **Tipo de internet (Fibra Óptica) e falta de serviços de suporte/segurança:** A combinação de mensalidade mais alta com ausência de suporte técnico ou segurança online aumenta a sensibilidade ao valor percebido.\n5. **Serviços de Streaming ativados:** Elevam a mensalidade para R$ 95,00 sem que haja serviços de retenção/proteção atrelados.\n\n---\n\n> **Observação:** Lembramos que o modelo de inteligência artificial mede **associações estatísticas** presentes nos dados históricos da empresa, e não causalidade direta. Ações de retenção (como ofertas de planos anuais, suporte dedicado ou descontos progressivos) podem ajudar a engajar a cliente.",
+      "ferramentas": [
+        {
+          "tool": "predict_churn",
+          "args": {
+            "gender": "Female",
+            "PaymentMethod": "Electronic check",
+            "OnlineSecurity": "No",
+            "DeviceProtection": "No",
+            "OnlineBackup": "No",
+            "StreamingTV": "Yes",
+            "Dependents": "No",
+            "TotalCharges": 285,
+            "InternetService": "Fiber optic",
+            "StreamingMovies": "Yes",
+            "Partner": "No",
+            "TechSupport": "No",
+            "Contract": "Month-to-month",
+            "PhoneService": "Yes",
+            "MultipleLines": "No",
+            "MonthlyCharges": 95,
+            "PaperlessBilling": "Yes",
+            "SeniorCitizen": 0,
+            "tenure": 3
+          },
+          "resultado": "{\"churn_prediction\": true, \"churn_probability\": 0.7891, \"risk_level\": \"Alto\", \"principais_fatores\": [{\"fator\": \"Tempo de casa: 3 meses\", \"efeito\": \"aumenta o risco\"}, {\"fator\": \"Internet: Fibra óptica\", \"efeito\": \"aumenta o risco\"}, {\"fator\": \"Contrato: Mensal\", \"efeito\": \"aumenta o risco\"}, {\"fator\": \"Pagamento: Cheque eletrônico\", \"efeito\": \"aumenta o risco\"}, {\"fator\": \"Streaming de TV: Sim\", \"efeito\": \"aumenta o risco\"}]}",
+          "sources": null,
+          "fonte": "api",
+          "ms": 177
+        }
+      ],
+      "estatisticas": {
+        "model_calls": 2,
+        "tool_calls": 1,
+        "input_tokens": 2559,
+        "output_tokens": 1242,
+        "latency_ms": 38714
+      }
+    }
+  }
+}
