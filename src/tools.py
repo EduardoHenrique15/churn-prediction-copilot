@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import threading
 from contextlib import suppress
 
 from dotenv import load_dotenv
@@ -17,9 +19,15 @@ API_URL = os.getenv("CHURN_API_URL", "http://127.0.0.1:8000").rstrip("/")
 REQUEST_TIMEOUT = int(os.getenv("CHURN_API_TIMEOUT", "10"))
 EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001")
 CHROMA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chroma_db")
+# O Chroma grava o índice neste arquivo. Testar o arquivo (e não só a pasta)
+# evita tratar como pronta uma pasta vazia ou de uma indexação interrompida.
+CHROMA_INDEX_FILE = os.path.join(CHROMA_DIR, "chroma.sqlite3")
+
+logger = logging.getLogger(__name__)
 
 _client: ChurnClient | None = None
 _retriever = None
+_index_lock = threading.Lock()
 
 
 def get_client() -> ChurnClient:
@@ -128,6 +136,27 @@ def predict_churn(
     return result, {"fonte": answer.source, "ms": round(answer.ms)}
 
 
+def _ensure_index() -> bool:
+    """Garante a base vetorial, construindo-a na primeira busca se faltar.
+
+    A pasta chroma_db/ não vai para o git: no deploy (Streamlit Cloud,
+    Docker) ela é montada aqui, uma vez, a partir dos .md versionados em
+    data/knowledge_base. Custa uma requisição de embeddings — e só acontece
+    quando o assistente já está em uso, ou seja, com a chave configurada.
+    O lock impede duas sessões de indexarem ao mesmo tempo.
+    """
+    if os.path.isfile(CHROMA_INDEX_FILE):
+        return True
+    if not os.getenv("GEMINI_API_KEY"):
+        return False
+    with _index_lock:
+        if not os.path.isfile(CHROMA_INDEX_FILE):
+            from src.build_knowledge_base import build_index
+
+            build_index()
+    return os.path.isfile(CHROMA_INDEX_FILE)
+
+
 def _get_retriever():
     """Inicializa o retriever sob demanda — importar este módulo não exige a
     chave do Gemini nem uma base vetorial pronta."""
@@ -154,10 +183,16 @@ def search_churn_knowledge(query: str) -> tuple[str, dict]:
     # response_format="content_and_artifact": `content` é o que o modelo lê;
     # `artifact` viaja no ToolMessage sem entrar no contexto do LLM — é de
     # onde a interface tira os nomes dos documentos-fonte.
-    if not os.path.isdir(CHROMA_DIR):
+    try:
+        ready = _ensure_index()
+    except Exception:
+        logger.exception("Falha ao construir a base de conhecimento")
+        ready = False
+    if not ready:
         return (
-            "A base de conhecimento ainda não foi construída. "
-            "Rode `python -m src.build_knowledge_base` para indexá-la.",
+            "A base de conhecimento não está disponível agora. Responda com o que você "
+            "sabe e avise que não consultou os documentos do projeto. (Para indexá-la: "
+            "`python -m src.build_knowledge_base`.)",
             {"sources": []},
         )
 

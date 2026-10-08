@@ -70,7 +70,7 @@ def test_tool_call_completa_devolve_toolmessage_com_a_fonte_no_artefato():
 
 
 def test_busca_sem_base_construida_orienta_em_vez_de_quebrar():
-    with patch("src.tools.os.path.isdir", return_value=False):
+    with patch("src.tools._ensure_index", return_value=False):
         message = search_churn_knowledge.invoke(
             {
                 "name": "search_churn_knowledge",
@@ -92,7 +92,7 @@ def test_busca_devolve_trechos_e_fontes_sem_duplicar():
     retriever = MagicMock()
     retriever.invoke.return_value = [Doc("a.md"), Doc("b.md"), Doc("a.md")]
     with (
-        patch("src.tools.os.path.isdir", return_value=True),
+        patch("src.tools._ensure_index", return_value=True),
         patch("src.tools._get_retriever", return_value=retriever),
     ):
         message = search_churn_knowledge.invoke(

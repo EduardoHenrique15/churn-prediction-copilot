@@ -18,12 +18,12 @@ COPY .streamlit/config.toml ./.streamlit/config.toml
 COPY src/ ./src/
 COPY models/ ./models/
 # Exemplos da aba Carteira, respostas gravadas do assistente e documentos do
-# RAG (data/raw/ fica de fora pelo .dockerignore), mais a base vetorial já
-# indexada (gerada com `python -m src.build_knowledge_base` e versionada).
+# RAG (data/raw/ fica de fora pelo .dockerignore). A base vetorial NÃO entra:
+# o assistente a monta na primeira busca (src/tools.py), então o appuser
+# precisa poder escrever em /app.
 COPY data/ ./data/
-COPY chroma_db/ ./chroma_db/
 
-RUN useradd --create-home --uid 1000 appuser
+RUN useradd --create-home --uid 1000 appuser && chown appuser /app
 USER appuser
 
 EXPOSE 8501

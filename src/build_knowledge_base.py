@@ -14,12 +14,14 @@ chega ao modelo com o contexto de onde veio.
 
 from __future__ import annotations
 
+import gc
 import os
 import shutil
 from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
 from src.tools import CHROMA_DIR, EMBEDDING_MODEL
@@ -58,42 +60,84 @@ def load_chunks(directory: Path = KNOWLEDGE_BASE_DIR) -> list[Document]:
     return chunks
 
 
-def main() -> None:
-    api_key = os.getenv("GEMINI_API_KEY")
+class _Precomputed(Embeddings):
+    """Entrega ao Chroma os vetores já calculados, sem nova chamada à API."""
+
+    def __init__(self, vectors: dict[str, list[float]]):
+        self.vectors = vectors
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self.vectors[text] for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        raise NotImplementedError("só usado na indexação")
+
+
+def build_index(target: str = CHROMA_DIR, api_key: str | None = None) -> int:
+    """Indexa os .md em `target` e devolve o número de trechos.
+
+    A base nova é montada numa pasta temporária e só substitui a antiga no
+    final: se os embeddings falharem no meio (cota, rede), a base que já
+    existia continua intacta. Indexar direto na pasta definitiva também não
+    serve porque Chroma.from_documents ACRESCENTA à coleção existente — rodar
+    de novo duplicaria os trechos.
+    """
+    api_key = api_key or os.getenv("GEMINI_API_KEY")
     if not api_key:
+        raise RuntimeError("GEMINI_API_KEY não configurada")
+    chunks = load_chunks()
+    if not chunks:
+        raise RuntimeError(f"Nenhum documento .md encontrado em {KNOWLEDGE_BASE_DIR}")
+
+    from chromadb.api.client import SharedSystemClient
+    from langchain_chroma import Chroma
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+    # Os embeddings são calculados ANTES de criar qualquer arquivo: é a etapa
+    # que falha na prática (cota, rede), e assim uma falha não deixa nada no
+    # disco — no Windows, uma pasta com o Chroma aberto nem poderia ser apagada.
+    embedder = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=api_key)
+    texts = [chunk.page_content for chunk in chunks]
+    vectors = dict(zip(texts, embedder.embed_documents(texts), strict=True))
+
+    staging = f"{target}.novo"
+    shutil.rmtree(staging, ignore_errors=True)
+    store = Chroma.from_documents(
+        documents=chunks, embedding=_Precomputed(vectors), persist_directory=staging
+    )
+    # Fecha os arquivos da pasta temporária antes de renomeá-la: no Windows,
+    # renomear uma pasta com arquivos abertos falha.
+    del store
+    SharedSystemClient.clear_system_cache()
+    gc.collect()
+    # A base antiga sai do caminho com um rename, que é tudo ou nada: no
+    # Windows, se a interface estiver com ela aberta, o PermissionError sobe
+    # sem estragar nada (um rmtree direto poderia apagar só metade).
+    retired = f"{target}.antiga"
+    shutil.rmtree(retired, ignore_errors=True)
+    if os.path.isdir(target):
+        os.replace(target, retired)
+    os.replace(staging, target)
+    shutil.rmtree(retired, ignore_errors=True)
+    return len(chunks)
+
+
+def main() -> None:
+    if not os.getenv("GEMINI_API_KEY"):
         raise SystemExit(
             "GEMINI_API_KEY não configurada. Defina-a no arquivo .env "
             "antes de construir a base de conhecimento."
         )
-
-    chunks = load_chunks()
-    if not chunks:
-        raise SystemExit(f"Nenhum documento .md encontrado em {KNOWLEDGE_BASE_DIR}")
-    n_docs = len({c.metadata["source"] for c in chunks})
-    print(f"{n_docs} documentos, {len(chunks)} trechos")
-
-    # Reindexação limpa: Chroma.from_documents ACRESCENTA à coleção que já
-    # existe no diretório. Sem apagar a base antiga, rodar este script de novo
-    # duplicaria os trechos (e manteria versões velhas dos documentos).
-    if os.path.isdir(CHROMA_DIR):
-        try:
-            shutil.rmtree(CHROMA_DIR)
-        except PermissionError as exc:
-            raise SystemExit(
-                f"Não foi possível apagar a base antiga em {CHROMA_DIR} — ela está "
-                "aberta por outro processo. Feche a interface (streamlit) e rode de novo."
-            ) from exc
-        print("Base vetorial anterior removida (reindexação limpa)")
-
-    from langchain_chroma import Chroma
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
-    Chroma.from_documents(
-        documents=chunks,
-        embedding=GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=api_key),
-        persist_directory=CHROMA_DIR,
-    )
-    print(f"Base vetorial criada em: {CHROMA_DIR}")
+    try:
+        n_chunks = build_index()
+    except PermissionError as exc:
+        raise SystemExit(
+            f"Não foi possível substituir a base antiga em {CHROMA_DIR} — ela está "
+            "aberta por outro processo. Feche a interface (streamlit) e rode de novo."
+        ) from exc
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"{n_chunks} trechos indexados em: {CHROMA_DIR}")
 
 
 if __name__ == "__main__":

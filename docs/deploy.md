@@ -31,15 +31,16 @@ uvicorn src.api:app --reload      # terminal 1
 streamlit run app.py              # terminal 2 → http://localhost:8501
 ```
 
-Depois, versione os artefatos novos. A pasta `chroma_db/` agora vai para o repositório (a interface na nuvem precisa dela), e o CSV processado antigo sai:
+Depois, versione os artefatos novos (modelo, documentos 04 e 05 e `data/demo/agent_demo.json`):
 
 ```bash
-git rm data/processed_churn.csv
 git add -A
-git status   # confira: nada de .env nem .streamlit/secrets.toml
-git commit -m "Churn Radar v2"
+git status   # confira: nada de .env, .streamlit/secrets.toml nem chroma_db/
+git commit -m "Retreino e respostas de demonstração"
 git push
 ```
+
+A pasta `chroma_db/` **não** vai para o repositório: é gerada a partir dos `.md` de `data/knowledge_base/` (que estão versionados). Na nuvem e no Docker, o assistente monta a base sozinho na primeira busca — uma requisição de embeddings, e só quando há `GEMINI_API_KEY` (sem a chave, o assistente nem é usado ao vivo).
 
 ## 2. API no Render
 

@@ -61,3 +61,22 @@ jobs:
         run: |
           docker image ls churn-radar-api --format 'Imagem: {{.Size}}'
           docker stats --no-stream --format 'Memória do container: {{.MemUsage}}' api
+  imagem-interface:
+    name: Imagem Docker da interface
+    runs-on: ubuntu-latest
+    needs: qualidade
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builda a partir de um clone limpo, como o docker compose de quem
+      # clona o repositório: pega arquivo que só existe na máquina de quem
+      # desenvolve (foi assim que o COPY chroma_db/ passou despercebido).
+      - name: Build
+        run: docker build -f Dockerfile.streamlit -t churn-radar-app .
+
+      - name: Sobe o container e testa o healthcheck do Streamlit
+        run: |
+          docker run -d --name app -p 8501:8501 churn-radar-app
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8501/_stcore/health && exit 0; sleep 1; done
+          docker logs app
+          exit 1

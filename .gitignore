@@ -22,5 +22,7 @@ data/raw/
 .streamlit/secrets.toml
 desktop.ini
 
-# Base vetorial do RAG (gerada por `python -m src.build_knowledge_base`)
-chroma_db/
+# Base vetorial do RAG: montada por `python -m src.build_knowledge_base` ou na
+# primeira busca do assistente (src/tools.py). Inclui as pastas .novo/.antiga
+# que existem só durante a reindexação.
+chroma_db*/

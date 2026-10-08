@@ -193,7 +193,7 @@ class TestRunTurn:
         )
         with (
             patch("src.tools._get_retriever", return_value=retriever),
-            patch("src.tools.os.path.isdir", return_value=True),
+            patch("src.tools._ensure_index", return_value=True),
         ):
             result = _run(llm, "o que é churn?", events)
 
@@ -204,7 +204,7 @@ class TestRunTurn:
             tool_round("search_churn_knowledge", {"query": "x"}, call_id=f"c{i}")
             for i in range(MAX_TOOL_ITERATIONS + 1)
         ]
-        with patch("src.tools.os.path.isdir", return_value=False):
+        with patch("src.tools._ensure_index", return_value=False):
             result = _run(FakeLLM(rounds), "pergunta que nunca conclui", events)
 
         assert "máximo de consultas" in result.answer
