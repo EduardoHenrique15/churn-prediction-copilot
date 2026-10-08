@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Privilégio mínimo: o CI só lê o código. Um passo comprometido (ação de
+# terceiro, dependência) não consegue escrever no repositório.
+permissions:
+  contents: read
+
 jobs:
   qualidade:
     name: Lint e testes
@@ -56,6 +61,10 @@ jobs:
           curl -sf -X POST http://127.0.0.1:8000/predict \
             -H 'Content-Type: application/json' \
             -d '{"gender":"Female","SeniorCitizen":0,"Partner":"Yes","Dependents":"No","tenure":5,"PhoneService":"Yes","MultipleLines":"No","InternetService":"Fiber optic","OnlineSecurity":"No","OnlineBackup":"No","DeviceProtection":"No","TechSupport":"No","StreamingTV":"Yes","StreamingMovies":"Yes","Contract":"Month-to-month","PaperlessBilling":"Yes","PaymentMethod":"Electronic check","MonthlyCharges":85.5,"TotalCharges":450.75}'
+
+      - name: Logs do container (só se algum passo acima falhar)
+        if: failure()
+        run: docker logs api
 
       - name: Tamanho da imagem e memória em uso (limite do Render free = 512 MB)
         run: |

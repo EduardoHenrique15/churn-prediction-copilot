@@ -86,26 +86,33 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "desconhecido"
 
 
+def _rate_limited(request: Request) -> JSONResponse | None:
+    """429 se este IP passou do limite no último minuto; None se pode seguir."""
+    if RATE_LIMIT_PER_MINUTE <= 0 or request.url.path not in _RATE_LIMITED_PATHS:
+        return None
+    now = time.monotonic()
+    hits = _hits[_client_ip(request)]
+    while hits and now - hits[0] > 60:
+        hits.popleft()
+    if len(hits) >= RATE_LIMIT_PER_MINUTE:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Muitas requisições. Tente de novo em um minuto."},
+            headers={"Retry-After": "60"},
+        )
+    hits.append(now)
+    if len(_hits) > 10_000:  # descarta IPs sem requisição no último minuto
+        for ip in [ip for ip, q in _hits.items() if not q or now - q[-1] > 60]:
+            del _hits[ip]
+    return None
+
+
 @app.middleware("http")
 async def rate_limit_and_log(request: Request, call_next):
-    if RATE_LIMIT_PER_MINUTE > 0 and request.url.path in _RATE_LIMITED_PATHS:
-        now = time.monotonic()
-        hits = _hits[_client_ip(request)]
-        while hits and now - hits[0] > 60:
-            hits.popleft()
-        if len(hits) >= RATE_LIMIT_PER_MINUTE:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Muitas requisições. Tente de novo em um minuto."},
-                headers={"Retry-After": "60"},
-            )
-        hits.append(now)
-        if len(_hits) > 10_000:  # descarta IPs sem requisição no último minuto
-            for ip in [ip for ip, q in _hits.items() if not q or now - q[-1] > 60]:
-                del _hits[ip]
-
     started = time.perf_counter()
-    response = await call_next(request)
+    # Os 429 também passam pelo log abaixo: antes eles saíam direto, e um
+    # abuso (ou um cliente legítimo travado no limite) ficava invisível.
+    response = _rate_limited(request) or await call_next(request)
     elapsed_ms = (time.perf_counter() - started) * 1000
     response.headers["X-Response-Time-ms"] = f"{elapsed_ms:.1f}"
     if request.url.path != "/health":

@@ -261,6 +261,7 @@ def render() -> None:
         s.demo_preloaded = True
         _add_recorded("prever")
     _demo_cards(live)
+    blocked_reason = reason
     if not live:
         if demo_answers().get("respostas"):
             reason += (
@@ -286,6 +287,13 @@ def render() -> None:
     s.pending_prompt = None
     if prompt and live:
         _ask_live(prompt)
+        # Nova execução para o contador "N pergunta(s) disponível(is)" e a
+        # caixa de digitação refletirem a pergunta que acabou de ser gasta.
+        st.rerun()
+    elif prompt:
+        # O limite acabou entre a pessoa digitar e enviar (outra sessão pode
+        # ter usado a cota do dia): avisar em vez de descartar em silêncio.
+        components.note(esc(f"Sua pergunta não foi enviada. {blocked_reason}"), "warn")
     if s.chat and st.button("Limpar conversa", icon=":material/delete_sweep:"):
         s.chat, s.agent_history = [], []
         st.rerun()

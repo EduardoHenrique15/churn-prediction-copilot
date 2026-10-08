@@ -5,8 +5,6 @@ import pytest
 from src.labels import (
     FIELD_LABELS,
     VALUE_LABELS,
-    describe_feature,
-    feature_name,
     field_contributions,
     field_value_text,
     value_label,
@@ -22,35 +20,6 @@ def test_todo_campo_tem_rotulo_em_portugues():
 @pytest.mark.parametrize("field", list(CATEGORY_OPTIONS))
 def test_todo_valor_categorico_tem_traducao(field):
     assert set(VALUE_LABELS[field]) == set(CATEGORY_OPTIONS[field])
-
-
-@pytest.mark.parametrize(
-    "feature,expected",
-    [
-        ("Contract_Two year", "Contrato: bienal (2 anos)"),
-        ("InternetService_No", "Sem internet"),
-        ("gender_Male", "Gênero masculino"),
-        ("TechSupport_Yes", "Suporte técnico"),
-        ("tenure", "Tempo de casa"),
-    ],
-)
-def test_feature_name(feature, expected):
-    assert feature_name(feature) == expected
-
-
-@pytest.mark.parametrize(
-    "feature,value,expected",
-    [
-        ("tenure", 1, "Tempo de casa: 1 mês"),
-        ("tenure", 5, "Tempo de casa: 5 meses"),
-        ("MonthlyCharges", 85.5, "Mensalidade: R$ 85,50"),
-        ("Contract_Two year", 0, "Contrato: não é bienal (2 anos)"),
-        ("OnlineSecurity_No internet service", 0, "Segurança online: com internet"),
-        ("SeniorCitizen", 1, "Idoso: sim"),
-    ],
-)
-def test_describe_feature(feature, value, expected):
-    assert describe_feature(feature, value) == expected
 
 
 def test_value_label():

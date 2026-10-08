@@ -503,7 +503,7 @@ def consistent_partial_dependence(
 
 
 def redundancy_stats(X_full: pd.DataFrame) -> dict[str, float]:
-    """Evidência para EXCLUDED_FEATURES, medida nos dados a cada treino.
+    """Evidência para EXCLUDED_FEATURES, medida nos dados de TREINO a cada treino.
 
     - `monthly_r2_services`: R² de uma regressão linear da mensalidade sobre
       as dummies dos serviços contratados (1,0 = totalmente determinada).
@@ -550,17 +550,20 @@ def main() -> None:
 
     raw = load_raw_data(RAW_DATA_PATH)
     X_full = preprocess_features(raw[RAW_INPUT_COLUMNS])
-    redundancy = redundancy_stats(X_full)
     X_all = X_full.drop(columns=list(EXCLUDED_FEATURES))
-    print(
-        f"Mensalidade explicada pelos serviços: R² = {redundancy['monthly_r2_services']:.3f} "
-        f"| correlação total gasto × tempo de casa: {redundancy['total_vs_tenure_corr']:.2f}"
-    )
     y_all = raw[TARGET_COL].astype(int)
     feature_columns = list(X_all.columns)
 
     idx_train, idx_test = train_test_split(
         raw.index, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y_all
+    )
+    # A evidência para tirar mensalidade e total gasto do modelo é uma decisão
+    # de modelagem: medida só no treino, como todas as outras. O teste só é
+    # tocado na avaliação final.
+    redundancy = redundancy_stats(X_full.loc[idx_train])
+    print(
+        f"Mensalidade explicada pelos serviços: R² = {redundancy['monthly_r2_services']:.3f} "
+        f"| correlação total gasto × tempo de casa: {redundancy['total_vs_tenure_corr']:.2f}"
     )
     X_train, X_test = X_all.loc[idx_train], X_all.loc[idx_test]
     y_train, y_test = y_all.loc[idx_train], y_all.loc[idx_test]

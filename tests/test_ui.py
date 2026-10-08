@@ -57,6 +57,16 @@ def test_tabela_leva_o_nome_da_coluna_em_cada_celula():
     assert "cr-table--stack" in markup
 
 
+def test_logit_para_probabilidade_nao_estoura_com_valores_extremos():
+    """A conversão usada na explicação aceita log-odds de qualquer tamanho
+    (math.exp(-x) puro dava OverflowError para x < -709)."""
+    from src.ui.charts import logit_to_p
+
+    assert logit_to_p(-1000) == 0.0
+    assert logit_to_p(1000) == 1.0
+    assert logit_to_p(0) == 0.5
+
+
 def test_app_completo_abre_na_visao_geral():
     at = AppTest.from_file(APP, default_timeout=TIMEOUT).run()
     assert not at.exception
@@ -235,6 +245,18 @@ class TestAssistente:
         text = html(at)
         assert "previsão do modelo" in text
         assert "R\\$ 124" in text  # cifrão escapado: não vira fórmula no Markdown
+        # O contador do topo já desconta a pergunta feita (antes ficava velho
+        # até a próxima interação).
+        assert "2 pergunta(s) ao vivo disponível(is)" in text
+
+    def test_pergunta_bloqueada_pelo_limite_avisa_em_vez_de_sumir(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "chave-de-teste")
+        monkeypatch.setattr("src.ui.pages.assistente.AGENT_MAX_QUESTIONS_PER_SESSION", 0)
+        at = page("assistente")
+        at.session_state["pending_prompt"] = "Qual o risco deste cliente?"
+        at.run()
+        assert not at.exception
+        assert "Sua pergunta não foi enviada" in html(at)
 
 
 def test_assistente_mostra_resposta_gravada_com_data_e_modelo(tmp_path, monkeypatch):

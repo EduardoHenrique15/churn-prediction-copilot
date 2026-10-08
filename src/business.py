@@ -22,7 +22,6 @@ p × success_rate × LTV > offer_cost, ou seja, p > offer_cost / (success_rate �
 
 from __future__ import annotations
 
-import math
 from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
@@ -246,16 +245,17 @@ def fmt_pct(value: float, decimals: int = 1) -> str:
 
 
 def fmt_pp(value: float, decimals: int = 1) -> str:
-    """Diferença de probabilidade em pontos percentuais, com sinal."""
-    sign = "+" if value > 0 else ("−" if value < 0 else "")
-    return f"{sign}{_br(f'{abs(value) * 100:,.{decimals}f}')} pp"
+    """Diferença de probabilidade em pontos percentuais, com sinal.
+
+    O sinal sai do valor JÁ arredondado: uma diferença de 0,0004 vira
+    "0,0 pp", não "+0,0 pp" (um sinal sem número que o justifique).
+    """
+    shown = round(abs(value) * 100, decimals)
+    sign = "" if shown == 0 else ("+" if value > 0 else "−")
+    return f"{sign}{_br(f'{shown:,.{decimals}f}')} pp"
 
 
 def fmt_brl(value: float, cents: bool = False) -> str:
     decimals = 2 if cents else 0
     text = _br(f"{abs(value):,.{decimals}f}")
     return f"{'−' if value < 0 else ''}R$ {text}"
-
-
-def sigmoid(x: float) -> float:
-    return 1.0 / (1.0 + math.exp(-x))

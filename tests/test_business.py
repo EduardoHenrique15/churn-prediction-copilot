@@ -179,3 +179,6 @@ class TestFormatacao:
         assert fmt_pp(0.123) == "+12,3 pp"
         assert fmt_pp(-0.05) == "−5,0 pp"
         assert fmt_pp(0.0) == "0,0 pp"
+        # Arredonda para zero: sem sinal ("+0,0 pp" sugeriria um aumento).
+        assert fmt_pp(0.0004) == "0,0 pp"
+        assert fmt_pp(-0.0004) == "0,0 pp"

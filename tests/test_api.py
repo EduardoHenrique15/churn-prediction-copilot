@@ -262,3 +262,47 @@ def test_rate_limit_nao_e_driblado_trocando_o_x_forwarded_for(monkeypatch):
         for i in range(5)
     ]
     assert codes.count(429) == 2
+
+
+class TestErrosDoServidor:
+    """O payload já passou pelo Pydantic: o que falhar depois é do servidor
+    (modelo corrompido, versão incompatível). Resposta curta, sem traceback."""
+
+    @staticmethod
+    def _quebra(*args, **kwargs):
+        raise RuntimeError("modelo corrompido")
+
+    def test_predict_devolve_500_sem_vazar_o_erro(self, monkeypatch):
+        monkeypatch.setattr(api_module.predictor, "predict", self._quebra)
+        response = client.post("/predict", json=make_customer())
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Erro interno ao gerar a previsão."}
+
+    def test_lote_devolve_500(self, monkeypatch):
+        monkeypatch.setattr(api_module.predictor, "predict", self._quebra)
+        response = client.post("/predict/batch", json={"customers": [make_customer()]})
+        assert response.status_code == 500
+        assert "lote" in response.json()["detail"]
+
+    def test_explain_sem_shap_devolve_503(self, monkeypatch):
+        def sem_shap(*args, **kwargs):
+            raise ImportError("No module named 'shap'")
+
+        monkeypatch.setattr(api_module.predictor, "explain", sem_shap)
+        response = client.post("/explain", json=make_customer())
+        assert response.status_code == 503
+        assert "SHAP" in response.json()["detail"]
+
+    def test_explain_com_erro_inesperado_devolve_500(self, monkeypatch):
+        monkeypatch.setattr(api_module.predictor, "explain", self._quebra)
+        response = client.post("/explain", json=make_customer())
+        assert response.status_code == 500
+
+
+def test_429_tambem_vai_para_o_log(monkeypatch, caplog):
+    monkeypatch.setattr(api_module, "RATE_LIMIT_PER_MINUTE", 1)
+    monkeypatch.setattr(api_module, "_hits", api_module.defaultdict(api_module.deque))
+    with caplog.at_level("INFO", logger="churn_api"):
+        codes = [client.post("/predict", json=make_customer()).status_code for _ in range(2)]
+    assert codes == [200, 429]
+    assert any('"status": 429' in record.getMessage() for record in caplog.records)

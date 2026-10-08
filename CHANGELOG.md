@@ -2,6 +2,30 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Publicado
+- API no Render (`churn-radar-api.onrender.com`) e interface no Streamlit Community Cloud (`churn-radar-br.streamlit.app`), com os links no README.
+
+### Corrigido
+- **Rate limit:** o IP vem do último endereço do `X-Forwarded-For` (o que o proxy anexa); trocar o cabeçalho não dribla mais o limite.
+- **Base do RAG:** a `chroma_db/` não é mais versionada nem copiada na imagem — o assistente a monta na primeira busca. A reindexação calcula os embeddings antes de tocar no disco e troca a base de uma vez: uma falha (cota, rede) não apaga a base antiga.
+- **Interface:** rótulos e subtítulos saíam com 15 px (o estilo do Streamlit vencia o do tema) e as seções ficavam coladas; tabela da Estratégia cortada; títulos gigantes nas respostas do assistente; formulário da página Cliente com a parte de Cobrança inalcançável enquanto fixo; `/inicio` abria "Page not found".
+- **Cliente da API:** 429 e 500 (API acordada recusando o pedido) não aparecem mais como "API acordando"; carregar o modelo local não trava o chip de status.
+- `fmt_pp` mostrava "+0,0 pp" para diferenças que arredondam a zero; a sigmoide da explicação estourava para log-odds muito negativos.
+
+### Mudado
+- **Carteira:** as hipóteses de custo ajustadas na Estratégia valem também ali (corte, fila e valor esperado), numa faixa de status única.
+- **Assistente:** a ferramenta de previsão lista os valores permitidos de cada campo (enum no schema do Gemini); a última rodada não executa ferramenta cujo resultado seria descartado; o contador de perguntas atualiza na hora e a pergunta bloqueada pelo limite vira aviso; o dia da cota é contado no fuso do Pacífico, como o do Gemini.
+- **Textos derivados do treino:** nomes dos modelos num lugar só (`src/labels.py`) e números como "28 pesos", "7.032 clientes" e o churn do contrato bienal saem de `metrics.json`/`evaluation.json`.
+- `redundancy_stats` (a evidência para tirar mensalidade e total gasto do modelo) é medida só no treino.
+- `record_demo` salva a cada resposta e retoma de onde parou se a cota acabar.
+- Revisão de estética: radar no topo da Visão geral, tabelas que viram cartões no celular, faixa de risco colorida na fila de contato, capturas e GIF do README refeitos.
+
+### Adicionado
+- CI: build e healthcheck da imagem da interface, permissões mínimas (`contents: read`) e logs do container quando o teste da API falha.
+- Testes: de 263 para 287 (erros 500/503 da API, 429 no log, cliente com API ocupada × dormindo, reindexação do RAG, hipóteses compartilhadas, schema da ferramenta do agente).
+
 ## [2.0.0] — 2026-09-26
 
 ### Corrigido

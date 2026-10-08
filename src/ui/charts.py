@@ -484,4 +484,9 @@ def dot_ranges(
 
 
 def logit_to_p(x: float) -> float:
-    return 1.0 / (1.0 + math.exp(-x))
+    """Sigmoide numericamente estável: sem OverflowError para log-odds muito
+    negativos (math.exp(-x) estoura a partir de x < -709)."""
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    z = math.exp(x)
+    return z / (1.0 + z)

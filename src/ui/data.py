@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import json
 import threading
-from datetime import UTC, datetime
+from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import numpy as np
 import pandas as pd
@@ -146,8 +147,22 @@ def _agent_usage() -> dict:
     return {"lock": threading.Lock(), "date": None, "count": 0, "quota_date": None}
 
 
+def _quota_timezone() -> tzinfo:
+    """A cota gratuita do Gemini zera à meia-noite do Pacífico, não à do UTC.
+
+    Contar o dia em UTC liberava perguntas ~8 h antes de a cota voltar: a
+    primeira falhava e a página só então marcava a cota como esgotada. Sem a
+    base de fusos (Windows sem o pacote tzdata), usa UTC−8 fixo — erra por
+    no máximo 1 h no horário de verão, em vez de 8 h.
+    """
+    try:
+        return ZoneInfo("America/Los_Angeles")
+    except ZoneInfoNotFoundError:
+        return timezone(timedelta(hours=-8))
+
+
 def _today() -> str:
-    return datetime.now(UTC).date().isoformat()
+    return datetime.now(_quota_timezone()).date().isoformat()
 
 
 def agent_questions_today() -> int:

@@ -117,56 +117,6 @@ def _split_feature(feature: str) -> tuple[str, str | None]:
     return field, category
 
 
-def _category_label(field: str, category: str) -> str:
-    return VALUE_LABELS.get(field, {}).get(category, category).lower()
-
-
-def feature_name(feature: str) -> str:
-    """Nome legível de uma feature do modelo, sem valor.
-
-    'Contract_Two year' -> 'Contrato: bienal (2 anos)'
-    """
-    field, category = _split_feature(feature)
-    label = FIELD_LABELS.get(field, field)
-    if category is None or category == "Yes":
-        return label
-    if field == "InternetService" and category == "No":
-        return "Sem internet"
-    if field == "gender":
-        return "Gênero masculino" if category == "Male" else label
-    return f"{label}: {_category_label(field, category)}"
-
-
-def describe_feature(feature: str, value: float) -> str:
-    """Feature + valor deste cliente em português, para as explicações.
-
-    Numéricas mostram o valor real; as demais são dummies do one-hot (0/1),
-    então a frase diz se o cliente TEM ou NÃO TEM aquela categoria:
-    'Contrato: não é bienal (2 anos)' em vez de 'Contract_Two year = 0'.
-    """
-    field, category = _split_feature(feature)
-    label = FIELD_LABELS.get(field, field)
-    if field == "tenure":
-        return f"{label}: {value:.0f} {'mês' if round(value) == 1 else 'meses'}"
-    if field in ("MonthlyCharges", "TotalCharges"):
-        return f"{label}: {fmt_brl(value, cents=True)}"
-
-    active = value >= 0.5
-    if field == "SeniorCitizen" or category == "Yes":
-        return f"{label}: {'sim' if active else 'não'}"
-    if field == "gender":
-        return f"{label}: {'masculino' if active else 'feminino'}"
-    if field == "InternetService" and category == "No":
-        return "Sem internet" if active else "Tem internet"
-
-    cat = _category_label(field, category)
-    if cat.startswith("sem "):
-        # "No internet service" / "No phone service": a negação natural de
-        # "sem internet" é "com internet", não "não é sem internet".
-        return f"{label}: {cat}" if active else f"{label}: com {cat[4:]}"
-    return f"{label}: {cat}" if active else f"{label}: não é {cat}"
-
-
 def field_value_text(field: str, value) -> str:
     """Valor cru de um campo, formatado para leitura ('Fiber optic' -> 'Fibra óptica')."""
     if field == "tenure":
