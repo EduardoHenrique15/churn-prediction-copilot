@@ -727,6 +727,7 @@ def main() -> None:
     ):
         with open(os.path.join(MODELS_DIR, filename), "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")  # fim de arquivo com quebra de linha (hook end-of-file-fixer)
     doc_path = write_model_doc(metrics, evaluation)
     print(f"Base de conhecimento atualizada: {os.path.relpath(doc_path, BASE_DIR)}")
 
