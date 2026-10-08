@@ -13,7 +13,7 @@
 <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-8A98AE">
 </p>
 
-**Demonstração:** [interface](https://churn-prediction-copilot-7vmqckjqy8fpqth4vctvtk.streamlit.app) · [documentação da API](https://churn-radar-api.onrender.com/docs) · [status da API](https://churn-radar-api.onrender.com/health)
+**Demonstração:** [interface](https://churn-radar-br.streamlit.app) · [documentação da API](https://churn-radar-api.onrender.com/docs) · [status da API](https://churn-radar-api.onrender.com/health)
 
 ![Demonstração: análise de um cliente (risco, recomendação e explicação), carteira com monitor de mudanças e model card](docs/screenshots/demo.gif)
 

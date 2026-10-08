@@ -2,7 +2,7 @@
 
 **End-to-end customer churn prediction for a telecom company.** A calibrated model predicts who is likely to cancel, explains every prediction and computes whether a retention offer is worth it; a FastAPI service serves the model; a Streamlit app and an AI assistant (Gemini with function calling + RAG) put it in the hands of decision makers. The interface is in Brazilian Portuguese.
 
-**Demo:** [app](https://churn-prediction-copilot-7vmqckjqy8fpqth4vctvtk.streamlit.app) · [API docs](https://churn-radar-api.onrender.com/docs) · [API health](https://churn-radar-api.onrender.com/health)
+**Demo:** [app](https://churn-radar-br.streamlit.app) · [API docs](https://churn-radar-api.onrender.com/docs) · [API health](https://churn-radar-api.onrender.com/health)
 
 ![Churn Radar home page](docs/screenshots/visao-geral.png)
 
