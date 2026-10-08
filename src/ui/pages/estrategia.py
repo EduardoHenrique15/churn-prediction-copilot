@@ -181,7 +181,7 @@ def render() -> None:
     values = [p["valor"] * scale for p in curve]
     lo, hi = min(0.0, min(values)), max(values)
     pad = (hi - lo) * 0.08 or 1.0
-    y_ticks = nice_ticks(lo, hi + pad)
+    y_ticks = nice_ticks(lo, hi + pad, n=7)
     hover = [
         (
             p["threshold"] * 100,
@@ -277,16 +277,19 @@ def render() -> None:
 
     # ---- Comparação --------------------------------------------------------------
     components.section("Comparação", "Formas de montar a campanha")
-    rows = [("Não fazer nada", None), ("Contatar todos", everyone)]
+    # Rótulo curto na 1ª coluna e o detalhe em linha menor: com o texto
+    # inteiro numa linha só, a tabela empurrava "Retorno líquido" para fora.
+    rows = [("Não fazer nada", "", None), ("Contatar todos", "", everyone)]
     if production is best:
         rows.append(
-            (f"Modelo, corte recomendado ({fmt_pct(best_t, 0)}, o mesmo em produção)", best)
+            (f"Modelo · corte de {fmt_pct(best_t, 0)}", "recomendado, o mesmo em produção", best)
         )
     else:
-        rows.append((f"Modelo, corte em produção ({fmt_pct(production_t, 0)})", production))
-        rows.append((f"Modelo, corte recomendado ({fmt_pct(best_t, 0)})", best))
-    body = []
-    for label, p in rows:
+        rows.append((f"Modelo · corte de {fmt_pct(production_t, 0)}", "em produção", production))
+        rows.append((f"Modelo · corte de {fmt_pct(best_t, 0)}", "recomendado", best))
+    table_rows = []
+    highlight = None
+    for i, (label, detail, p) in enumerate(rows):
         if p is None:
             cells = ["0", "0", fmt_brl(0), fmt_brl(0), fmt_brl(0)]
         else:
@@ -299,15 +302,23 @@ def render() -> None:
                 fmt_brl(saved * ltv),
                 fmt_brl(p["valor"] * scale),
             ]
-        hl = ' class="cr-hl"' if p is best else ""
-        body.append(
-            f"<tr{hl}><td>{esc(label)}</td>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
-        )
+        if p is best:
+            highlight = i
+        name = esc(label) + (f"<small>{esc(detail)}</small>" if detail else "")
+        table_rows.append([name, *cells])
     ui_html(
-        '<div class="cr-table-wrap"><table class="cr-table"><thead><tr>'
-        "<th>Estratégia</th><th>Contatados</th><th>Clientes salvos</th><th>Custo das ofertas</th>"
-        "<th>Receita preservada</th><th>Retorno líquido</th></tr></thead>"
-        f"<tbody>{''.join(body)}</tbody></table></div>"
+        components.table(
+            [
+                "Estratégia",
+                "Contatados",
+                "Clientes salvos",
+                "Custo das ofertas",
+                "Receita preservada",
+                "Retorno líquido",
+            ],
+            table_rows,
+            highlight=highlight,
+        )
     )
     components.note(
         "<b>Como a conta é feita:</b> retorno líquido = clientes que iam cancelar e foram "

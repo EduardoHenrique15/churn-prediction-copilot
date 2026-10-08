@@ -32,8 +32,8 @@ from src.ui.data import (
     get_client,
     reference_profile,
 )
-from src.ui.html import esc, md_text, ui_html
-from src.ui.theme import DANGER, OK, WARN
+from src.ui.html import esc, md_text
+from src.ui.theme import DANGER, OK, RISK_STYLE, WARN
 from src.utils import RAW_INPUT_COLUMNS
 from src.validation import prepare_batch
 
@@ -109,14 +109,14 @@ def _predict(records: list[dict]) -> tuple[list[dict], str, float]:
     return cache[key]
 
 
-def _validation_report(n_rows: int, n_valid: int, problems: pd.DataFrame, notes: list[str]) -> None:
-    kind = "ok" if problems.empty else "warn"
+def _validation_text(n_rows: int, n_valid: int, problems: pd.DataFrame) -> str:
     text = f"<b>{fmt_int(n_rows)}</b> linhas lidas · <b>{fmt_int(n_valid)}</b> prontas para prever"
     if not problems.empty:
         text += f" · <b>{fmt_int(len(problems))}</b> com problema (ignoradas)"
-    for extra in notes:
-        text += f"<br>{esc(extra)}"
-    components.note(text, kind)
+    return text
+
+
+def _problems(problems: pd.DataFrame) -> None:
     if not problems.empty:
         with st.expander(f"Ver as {len(problems)} linhas com problema", icon=":material/error:"):
             st.dataframe(
@@ -163,10 +163,8 @@ def _score(
     return scored
 
 
-def _assumptions(policy: dict) -> None:
-    """Quais hipóteses de custo estão valendo — e onde mudá-las."""
-    from src.ui.nav import PAGES
-
+def _assumptions(policy: dict) -> str:
+    """Quais hipóteses de custo estão valendo (texto da faixa de status)."""
     costs = policy["costs"]
     # Corte em 100%: a oferta custa mais do que o retorno esperado de qualquer
     # cliente (custo ≥ sucesso × valor do cliente) — ninguém vale o contato.
@@ -185,8 +183,25 @@ def _assumptions(policy: dict) -> None:
         if policy["custom"]
         else "Hipóteses de referência"
     )
-    components.note(f"<b>{label}:</b> {text}")
-    st.page_link(PAGES["estrategia"], label="Ajustar as hipóteses", icon=":material/tune:")
+    return f"<b>{label}:</b> {text}"
+
+
+def _status(lines: list[str], kind: str, policy: dict | None = None) -> None:
+    """Uma faixa só com validação, origem do cálculo e hipóteses — antes eram
+    três blocos empilhados e um botão solto acima dos indicadores."""
+    from src.ui.nav import PAGES
+
+    body = "".join(f'<div class="cr-status-line">{line}</div>' for line in lines)
+    if policy is None:
+        components.note(f'<div class="cr-status">{body}</div>', kind)
+        return
+    left, right = st.columns([5, 1], vertical_alignment="center", gap="small")
+    with left:
+        components.note(f'<div class="cr-status">{body}</div>', kind)
+    with right:
+        st.page_link(
+            PAGES["estrategia"], label="Ajustar hipóteses", icon=":material/tune:", width="stretch"
+        )
 
 
 def _summary(scored: pd.DataFrame, policy: dict) -> None:
@@ -305,8 +320,14 @@ def _queue(scored: pd.DataFrame, name: str) -> None:
     columns += ["tenure", "Contrato", "Internet", "Pagamento", "MonthlyCharges"]
     if only_contact:
         view = view[view["contatar"] == "Sim"]
+    risk_colors = {level: f"color: {style['color']}" for level, style in RISK_STYLE.items()}
+    table = (
+        view[columns]
+        .style.map(lambda level: risk_colors.get(level, ""), subset=["risco"])
+        .format({"risco": lambda level: f"{RISK_STYLE[level]['icon']} {level}"})
+    )
     st.dataframe(
-        view[columns],
+        table,
         hide_index=True,
         height=min(38 + 35 * len(view), 460),
         column_config={
@@ -420,24 +441,31 @@ def render() -> None:
             "warn",
         )
         return
-    _validation_report(len(df), len(records), problems, notes)
+    kind = "ok" if problems.empty else "warn"
+    validation = _validation_text(len(df), len(records), problems)
+    extra = [esc(note) for note in notes]
     if not records:
+        _status([validation, *extra], kind)
+        _problems(problems)
         return
 
     try:
         with st.spinner(f"Calculando o risco de {fmt_int(len(records))} clientes…"):
             predictions, source, ms = _predict(records)
     except InvalidCustomerError:
+        _status([validation, *extra], kind)
         components.note("A validação da API recusou este lote.", "warn")
         return
 
     policy = campaign_policy()
     scored = _score(clean, records, predictions, policy)
-    ui_html(
-        f'<p class="cr-sub" style="margin:4px 0 12px 0">{fmt_int(len(records))} clientes · '
-        f"{esc(components.source_label(source, ms))}</p>"
+    source_text = esc(components.source_label(source, ms))
+    _status(
+        [f"{validation} · {source_text}", *extra, _assumptions(policy)],
+        kind,
+        policy,
     )
-    _assumptions(policy)
+    _problems(problems)
     _summary(scored, policy)
     _distribution(scored, policy)
     _truth(scored)

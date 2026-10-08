@@ -37,6 +37,26 @@ def _sem_chave_do_gemini(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
 
+def test_css_do_tema_nao_tem_sinal_de_menor():
+    """Um "<p>" num comentário do CSS bastou para o sanitizador do st.html
+    descartar o <style> inteiro — a interface perdia o tema sem nenhum erro."""
+    from src.ui.theme import STYLES
+
+    css = STYLES.strip().removeprefix("<style>").removesuffix("</style>")
+    assert "<" not in css
+
+
+def test_tabela_leva_o_nome_da_coluna_em_cada_celula():
+    """No celular a tabela vira cartões e cada valor mostra o nome da coluna
+    via data-label — sem isso só a 1ª coluna aparecia na tela."""
+    from src.ui.components import table
+
+    markup = table(["Grupo", "Clientes"], [["Idosos", "232"], ["Não idosos", "1.175"]], highlight=1)
+    assert 'data-label="Clientes">232</td>' in markup
+    assert '<tr class="cr-hl"><td data-label="Grupo">Não idosos' in markup
+    assert "cr-table--stack" in markup
+
+
 def test_app_completo_abre_na_visao_geral():
     at = AppTest.from_file(APP, default_timeout=TIMEOUT).run()
     assert not at.exception

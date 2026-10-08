@@ -132,6 +132,30 @@ def card(html: str, title: str = "") -> None:
     ui_html(f'<div class="cr-card">{title_html}{html}</div>')
 
 
+def table(
+    headers: Sequence[str], rows: Sequence[Sequence[str]], highlight: int | None = None
+) -> str:
+    """Tabela de números que vira cartões no celular.
+
+    Cada célula leva o nome da coluna em `data-label`; abaixo de 760 px o
+    CSS (.cr-table--stack) esconde o cabeçalho e mostra o rótulo ao lado do
+    valor — em vez de uma tabela larga cortada sem aviso de rolagem.
+    As células já chegam em HTML (escape é de quem monta as linhas).
+    """
+    head = "".join(f"<th>{esc(h)}</th>" for h in headers)
+    body = []
+    for i, row in enumerate(rows):
+        cells = "".join(
+            f'<td data-label="{esc(h)}">{cell}</td>' for h, cell in zip(headers, row, strict=True)
+        )
+        attrs = ' class="cr-hl"' if i == highlight else ""
+        body.append(f"<tr{attrs}>{cells}</tr>")
+    return (
+        '<div class="cr-table-wrap"><table class="cr-table cr-table--stack">'
+        f"<thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>"
+    )
+
+
 def footer() -> None:
     links = []
     if GITHUB_URL:

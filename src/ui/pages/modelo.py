@@ -325,15 +325,31 @@ def _subgroups(ev: dict) -> None:
             continue
         auc = fmt_num(g["roc_auc"], 3) if "roc_auc" in g else "—"
         rows.append(
-            f"<tr><td>{esc(label)}</td><td>{fmt_int(g['n'])}</td><td>{fmt_pct(g['churn_rate'])}</td>"
-            f"<td>{fmt_pct(g['mean_predicted'])}</td><td>{fmt_pct(g['contact_rate'])}</td>"
-            f"<td>{fmt_pct(g['recall'])}</td><td>{fmt_pct(g['precision'])}</td><td>{auc}</td></tr>"
+            [
+                esc(label),
+                fmt_int(g["n"]),
+                fmt_pct(g["churn_rate"]),
+                fmt_pct(g["mean_predicted"]),
+                fmt_pct(g["contact_rate"]),
+                fmt_pct(g["recall"]),
+                fmt_pct(g["precision"]),
+                auc,
+            ]
         )
     ui_html(
-        '<div class="cr-table-wrap"><table class="cr-table"><thead><tr><th>Grupo</th>'
-        "<th>Clientes</th><th>Churn real</th><th>Previsto</th><th>Contatados</th>"
-        "<th>Encontrados</th><th>Precisão</th><th>ROC-AUC</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        components.table(
+            [
+                "Grupo",
+                "Clientes",
+                "Churn real",
+                "Previsto",
+                "Contatados",
+                "Encontrados",
+                "Precisão",
+                "ROC-AUC",
+            ],
+            rows,
+        )
     )
     two_year = groups.get("contract_two_year")
     if two_year:

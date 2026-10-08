@@ -61,10 +61,44 @@ EXPLORE = [
 ]
 
 
+# Radar decorativo do hero: anéis, varredura e alguns clientes ("blips")
+# coloridos pela faixa de risco — o nome do produto em forma de imagem. Some
+# abaixo de 980 px (CSS) e é ignorado por leitores de tela.
+_RADAR_RINGS = "".join(
+    f'<circle cx="140" cy="140" r="{r}" fill="none" stroke="rgba(34,211,238,{a})" />'
+    for r, a in ((46, 0.20), (92, 0.16), (138, 0.12))
+)
+_RADAR_BLIPS = (
+    ("alto", 68, 30),
+    ("alto", 79, 58),
+    ("medio", 30, 38),
+    ("medio", 61, 74),
+    ("baixo", 24, 66),
+    ("baixo", 44, 82),
+    ("baixo", 39, 22),
+    ("baixo", 82, 40),
+)
+RADAR = (
+    '<div class="cr-radar" aria-hidden="true">'
+    '<svg viewBox="0 0 280 280">'
+    f"{_RADAR_RINGS}"
+    '<line x1="0" y1="140" x2="280" y2="140" stroke="rgba(34,211,238,0.12)" />'
+    '<line x1="140" y1="0" x2="140" y2="280" stroke="rgba(34,211,238,0.12)" />'
+    "</svg>"
+    '<div class="cr-radar-sweep"></div>'
+    + "".join(
+        f'<i class="cr-blip cr-blip--{kind}" style="left:{x}%;top:{y}%"></i>'
+        for kind, x, y in _RADAR_BLIPS
+    )
+    + '<span class="cr-radar-tag" style="left:68%;top:30%">▲ contatar</span>'
+    "</div>"
+)
+
+
 def _hero() -> None:
     stack = "".join(f"<span>{esc(item)}</span>" for item in STACK)
     ui_html(
-        '<div class="cr-hero">'
+        '<div class="cr-hero"><div class="cr-hero-grid"><div>'
         '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">'
         '<p class="cr-eyebrow" style="margin:0">Machine learning de ponta a ponta</p>'
         f"{components.status_chip()}</div>"
@@ -74,7 +108,7 @@ def _hero() -> None:
         "modelo calibrado, uma API publicada e um assistente de IA que consulta o modelo e uma "
         "base de conhecimento.</p>"
         f'<div class="cr-stack">{stack}</div>'
-        "</div>"
+        f"</div>{RADAR}</div></div>"
     )
     from src.ui.nav import PAGES
 
@@ -213,8 +247,11 @@ def _explore() -> None:
     cols = st.columns(len(EXPLORE), gap="small")
     for col, (path, title, icon, text) in zip(cols, EXPLORE, strict=True):
         with col, st.container(border=True, height="stretch"):
-            ui_html(f'<div class="cr-step-d" style="min-height:108px">{esc(text)}</div>')
-            st.page_link(PAGES[path], label=title, icon=icon)
+            ui_html(
+                f'<div class="cr-explore-t">{esc(title)}</div>'
+                f'<div class="cr-step-d" style="min-height:106px">{esc(text)}</div>'
+            )
+            st.page_link(PAGES[path], label=f"Abrir {title.lower()}", icon=icon)
 
 
 def render() -> None:
